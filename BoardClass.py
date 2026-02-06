@@ -11,7 +11,7 @@ class Board:
         self.n = n
 
     @property
-    def obstacles:
+    def obstacles():
         return self.obstacles
 
     def is_valid_coordinate((x_val, y_val)):
