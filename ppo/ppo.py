@@ -5,7 +5,8 @@ import random
 import torch
 import torch.nn as nn
 import numpy as np
-# from tensorflow.keras.optimizers import Adam
+# from tensorflow.keras.optimizers 
+import Adam
 
 # Make a branch when you work on the code and then push it to the repo
  
@@ -141,7 +142,11 @@ class PPO:
         pass
     
     def update(self):
-        """ Main update function - call actor and critic updates"""
+        """ Main update function - call actor and critic updates """
+        advantage_new = self.calcAdvantage(""" NOTE TO SELF: Fill out the appropriate parameters here """) 
+        discountedReturns_new = self.calcDiscountedReturns(""" NOTE TO SELF: Fill out the appropriate parameters here """) 
+        self.updateActor(""" NOTE TO SELF: Fill out the appropriate parameters here """) 
+        self.updateCritic(""" NOTE TO SELF: Fill out the appropriate parameters here """) 
         pass
     
     def updateActor(self, imu, servo, lidar, actions, log_prob_old):
