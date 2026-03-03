@@ -5,8 +5,7 @@ import random
 import torch
 import torch.nn as nn
 import numpy as np
-# from tensorflow.keras.optimizers 
-import Adam
+# from tensorflow.keras.optimizers import Adam
 
 # Make a branch when you work on the code and then push it to the repo
  
