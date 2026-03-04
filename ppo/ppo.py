@@ -51,17 +51,16 @@ class PPO:
         # current reward + (discount factor * next critic value) - current critic value 
         return self.rewards_tensor + (self.discount * mask_tensor * next_values) - self.critic_values_tensor[:-1]
 
-    def calcAdvantage(self, index, next_advantage, done = False, gae_parameter = 0.95):
+    def calcAdvantage(self, next_value, next_advantage, done = False, gae_parameter = 0.95):
         """ Calculate Advantage Estimation """
         if done: 
             next_advantage = 0 
-        return self.calculateTDResidual() + (self.discount * gae_parameter * next_advantage)
+        return self.calculateTDResidual(next_value) + (self.discount * gae_parameter * next_advantage)
 
     def calcDiscountedReturns(self):
         """ Calculate Discounted Returns """
 	    # (discounted factor ^ range from 0 to the number of rows of the rewards tensor) * the rewards tensor
         return self.discount ** torch.arange(self.rewards_tensor.size(0)) * self.rewards_tensor
-
 
     def update(self):
         """ Main update function - call actor and critic updates"""
