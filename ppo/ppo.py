@@ -36,6 +36,8 @@ class PPO:
         self.values = []
         self.log_probs = [] # store old log probs for PPO
         self.dones = [] # added from zihanwang126-branch
+        self.rewards_tensor = torch.tensor(self.rewards, dtype = torch.float32)
+        self.critic_values_tensor = self.critic.getValues(self.states['imu'], self.states['servo'], self.states['lidar']).detach()
 
     def compute_log_prob(self, imu, servo, lidar, actions):
         pass
@@ -132,14 +134,24 @@ class PPO:
         }
         return data
 
-    def calcAdvantage(self):
+    def calculateTDResidual(self, next_value, done): 
+        mask_tensor = 1.0 - torch.tensor(done, dtype = torch.float32)
+        next_values = torch.cat([self.critic_values_tensor[1:], next_value.unsqueeze(0)]) 
+        # uses vectorization to calculate the TD residual 
+        # current reward + (discount factor * next critic value) - current critic value 
+        return self.rewards_tensor + (self.discount * mask_tensor * next_values) - self.critic_values_tensor[:-1]
+
+    def calcAdvantage(self, next_value, next_advantage, done = False, gae_parameter = 0.95):
         """ Calculate Advantage Estimation """
-        pass
+        if done: 
+            next_advantage = 0 
+        return self.calculateTDResidual(next_value) + (self.discount * gae_parameter * next_advantage)
 
     def calcDiscountedReturns(self):
         """ Calculate Discounted Returns """
-        pass
-    
+	    # (discounted factor ^ range from 0 to the number of rows of the rewards tensor) * the rewards tensor
+        return self.discount ** torch.arange(self.rewards_tensor.size(0)) * self.rewards_tensor
+
     def update(self):
         """ Main update function - call actor and critic updates """
         advantage_new = self.calcAdvantage(""" NOTE TO SELF: Fill out the appropriate parameters here """) 
