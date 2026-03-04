@@ -35,7 +35,7 @@ class PPO:
         self.values = []
         self.log_probs = [] # store old log probs for PPO
         self.rewards_tensor = torch.tensor(self.rewards, dtype = torch.float32)
-        self.critic_values_tensor = self.critic.getValues().detach()
+        self.critic_values_tensor = self.critic.getValues(self.states['imu'], self.states['servo'], self.states['lidar']).detach()
 
     def compute_log_prob(self, imu, servo, lidar, actions):
         pass
@@ -44,24 +44,25 @@ class PPO:
         """ Get trajectory data by executing policy within environment """
         pass
 
-    def calculateTDResidual(self, done): 
-        if (critic_values_tensor.size(0) == rewards_tensor.size(0) + 1): 
-                mask_tensor = 1.0 - torch.tensor(done, dtype = torch.float32) 
-                # uses vectorization to calculate the TD residual 
-                # current reward + (discount factor * next critic value) - current critic value 
-                return rewards_tensor + (self.discount * mask tensor * critic_values_tensor[1:]) - critic_values_tensor[:-1]
+    def calculateTDResidual(self, next_value, done): 
+        mask_tensor = 1.0 - torch.tensor(done, dtype = torch.float32)
+        next_values = torch.cat([self.critic_values_tensor[1:], next_value.unsqueeze(0)]) 
+        # uses vectorization to calculate the TD residual 
+        # current reward + (discount factor * next critic value) - current critic value 
+        return self.rewards_tensor + (self.discount * mask_tensor * next_values) - self.critic_values_tensor[:-1]
 
-    def calcAdvantage(self, next_advantage, done = False, gae_parameter = 0.95):
+    def calcAdvantage(self, index, next_advantage, done = False, gae_parameter = 0.95):
         """ Calculate Advantage Estimation """
-	if done: 
-		next_advantage = 0 
-        return calculateTDResidual(index) + (self.discount * gae_parameter * next_advantage)
+        if done: 
+            next_advantage = 0 
+        return self.calculateTDResidual() + (self.discount * gae_parameter * next_advantage)
 
     def calcDiscountedReturns(self):
         """ Calculate Discounted Returns """
-	# (discounted factor ^ range from 0 to the number of rows of the rewards tensor) * the rewards tensor
-        return self.discount ** torch.arange(rewards_tensor.size(0)) * rewards_tensor
-    
+	    # (discounted factor ^ range from 0 to the number of rows of the rewards tensor) * the rewards tensor
+        return self.discount ** torch.arange(self.rewards_tensor.size(0)) * self.rewards_tensor
+
+
     def update(self):
         """ Main update function - call actor and critic updates"""
         pass

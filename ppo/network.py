@@ -83,3 +83,9 @@ class Critic(nn.Module):
         
         return value
     
+    def getValues(self, imu, servo, lidar): 
+        with torch.no_grad(): 
+            value = self.forward(imu, servo, lidar) 
+
+        return value.detach.squeeze() 
+    
