@@ -84,6 +84,19 @@ class Actor(nn.Module):
         log_std = self.tanh(self.log_std_layer(x))
         
         return mean, log_std
+    
+    def get_action(self, imu, servo, lidar):
+        mean, log_std = self.forward(imu, servo, lidar)
+        #turns the log of std back to normal standard distribution
+        std = log_std.exp()  
+        #Creates a Normal (Gaussian) distribution for the action centered at mean 
+        # & spread out by standard distribution
+        dist = torch.distributions.Normal(mean, std)
+        #takes one action from normal distribution
+        action = dist.sample()
+        #Computes the log probability of the sampled action under the distribution dist.
+        log_prob = dist.log_prob(action).sum(dim=-1)
+        return action, log_prob
 
 class Critic(nn.Module):
     def __init__(self):
@@ -124,3 +137,7 @@ class Critic(nn.Module):
         
         return value
     
+    def get_value(self, imu, servo, lidar):
+        with torch.no_grad():  # rollout doesn’t need gradients
+            return self.forward(imu, servo, lidar)
+        
