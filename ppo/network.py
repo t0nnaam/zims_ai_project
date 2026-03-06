@@ -48,32 +48,48 @@ class Actor(nn.Module):
         #calculates how "sure" the agent is of the action
         self.log_std_layer = nn.Linear(64, ACTION_SPACE_SIZE)
         
-        
+        #these are our activation functions
+        #makes it so that negative inputs arent accounted in neuron
         self.relu = nn.ReLU()
+        #makes it so output is between -1 and 1
         self.tanh = nn.Tanh()
 
-        def forward(self, imu, servo, lidar):
-            x_imu = self.relu(self.imu_fc1(imu))
-            x_imu = self.relu(self.imu_fc2(x_imu))
-            
-            x_servo = self.relu(self.servo_fc1(servo))
-            x_servo = self.relu(self.servo_fc2(x_servo))
+    def forward(self, imu, servo, lidar):
+        #passes the imus through the activation function twice so that it 
+        # can determine the values.
+        #makes 64 imu neurons
+        x_imu = self.relu(self.imu_fc1(imu))
+        #condenses neurons to 32
+        x_imu = self.relu(self.imu_fc2(x_imu))
+        
+        #makes servo neurons
+        x_servo = self.relu(self.servo_fc1(servo))
+        x_servo = self.relu(self.servo_fc2(x_servo))
 
-            x_lidar = self.relu(self.lidar_fc1(lidar))
-            x_lidar = self.relu(self.lidar_fc2(x_lidar))
-            
-            combined = torch.cat([x_imu, x_servo, x_lidar], dim=-1)
-            x = self.relu(self.combined_fc(combined))
-            
-            mean = self.tanh(self.mean_layer(x))
-            log_std = self.tanh(self.log_std_layer(x))
-            
-            return mean, log_std
+        #makes lidar neurons
+        x_lidar = self.relu(self.lidar_fc1(lidar))
+        x_lidar = self.relu(self.lidar_fc2(x_lidar))
+        
+        #puts outputs from neuron layers to make a 96 length vector that has all sensor
+        #info
+        combined = torch.cat([x_imu, x_servo, x_lidar], dim=-1)
+        #combines the 96 length vector to 64 neurons, which is sent through the activation
+        #function one more time to make only positive values
+        x = self.relu(self.combined_fc(combined))
+        
+        #maps 64 neurons to the 12 servo outputs 
+        mean = self.tanh(self.mean_layer(x))
+        #calculates how sure the bot is of this action, this mechanism lets the bot try new 
+        #things sometimes
+        log_std = self.tanh(self.log_std_layer(x))
+        
+        return mean, log_std
 
 class Critic(nn.Module):
     def __init__(self):
         super(Critic, self).__init__()
         
+    
         self.imu_fc1 = nn.Linear(6, 64)
         self.imu_fc2 = nn.Linear(64, 32)
         
