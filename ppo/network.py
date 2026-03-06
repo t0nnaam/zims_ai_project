@@ -21,7 +21,7 @@ class Actor(nn.Module):
         self.lidar_fc1 = nn.Linear(3, 64)
         self.lidar_fc2 = nn.Linear(64, 32)
         
-        self.combined_input = nn.Linear(96, 64)  # 32+32+32 -> 64
+        self.combined_fc = nn.Linear(96, 64)
         
         self.mean_layer = nn.Linear(64, ACTION_SPACE_SIZE)
         self.log_std_layer = nn.Linear(64, ACTION_SPACE_SIZE)
@@ -60,7 +60,7 @@ class Critic(nn.Module):
         self.lidar_fc1 = nn.Linear(3, 64)
         self.lidar_fc2 = nn.Linear(64, 32)
         
-        self.combined_fc = nn.Linear(96, 64)  # 32+32+32 -> 64
+        self.combined_fc = nn.Linear(96, 64)
         
         self.value_layer = nn.Linear(64, 1)
         
@@ -87,5 +87,5 @@ class Critic(nn.Module):
         with torch.no_grad(): 
             value = self.forward(imu, servo, lidar) 
 
-        return value.detach.squeeze() 
+        return value.detach().squeeze()
     

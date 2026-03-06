@@ -19,8 +19,8 @@ class PPO:
         self.critic = Critic()
         
         # Optimizers
-        self.actor_optimizer = torch.optim.Adam(lr=0.001)
-        self.critic_optimizer = torch.optim.Adam(lr=0.001)
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=0.001)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=0.001)
         
         # Hyperparameters
         self.discount = discount  # discount factor
@@ -36,8 +36,8 @@ class PPO:
         self.values = []
         self.log_probs = [] # store old log probs for PPO
         self.dones = [] # added from zihanwang126-branch
-        self.rewards_tensor = torch.tensor(self.rewards, dtype = torch.float32)
-        self.critic_values_tensor = self.critic.getValues(self.states['imu'], self.states['servo'], self.states['lidar']).detach()
+        # self.rewards_tensor = torch.tensor(self.rewards, dtype = torch.float32)
+        # self.critic_values_tensor = self.critic.getValues(self.states['imu'], self.states['servo'], self.states['lidar']).detach()
 
     def compute_log_prob(self, imu, servo, lidar, actions):
         pass
@@ -211,8 +211,8 @@ class PPO:
             # Compute MSE loss: mean squared error between prediction and target
             loss = nn.MSELoss()(predicted_values, returns)
 
-            # Backpropagation
-            #Clear previous gradients
+            # Back propagation
+            # Clear previous gradients
             self.optimizer.zero_grad()
 
             # Compute gradients of the loss
