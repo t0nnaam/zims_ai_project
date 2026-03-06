@@ -97,10 +97,6 @@ class PPO:
             next_state, reward, done, info = env.step(action_np)
 
             # 6. Store transition data
-            imu = state[:6]
-            servo = state[6:18]
-            lidar = state[18:21]
-            
             self.states['imu'].append(imu)
             self.states['servo'].append(servo)
             self.states['lidar'].append(lidar)
@@ -284,7 +280,7 @@ class PPO:
         Clear trajectory buffers
         Resets all storage lists to empty
         """
-        self.states = []
+        self.states = {'imu': [], 'servo': [], 'lidar': []}
         self.actions = []
         self.rewards = []
         self.log_probs = []
