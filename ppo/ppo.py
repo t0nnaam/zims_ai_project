@@ -28,6 +28,7 @@ class PPO:
         self.advantage = advantage # for advantage estimation
         self.epochs = epoch # number of epochs
         self.batch_size = batch_size # number of samples per update
+        self.max_grad_norm = 0.5 # safety limit for gradient magnitude to prevent exploding gradients
         
         # Storage for trajectories
         self.states = {'imu': [], 'servo': [], 'lidar':[]}
@@ -255,7 +256,7 @@ class PPO:
 
             # Back propagation
             # Clear previous gradients
-            self.optimizer.zero_grad()
+            self.critic_optimizer.zero_grad()
 
             # Compute gradients of the loss
             loss.backward()
@@ -264,7 +265,7 @@ class PPO:
             nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
 
             # Update network weights
-            self.optimizer.step()
+            self.critic_optimizer.step()
 
             # Accumulate loss
             total_loss += loss.item()
