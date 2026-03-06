@@ -154,10 +154,10 @@ class PPO:
 
     def update(self):
         """ Main update function - call actor and critic updates """
-        advantage_new = self.calcAdvantage(""" NOTE TO SELF: Fill out the appropriate parameters here """) 
-        discountedReturns_new = self.calcDiscountedReturns(""" NOTE TO SELF: Fill out the appropriate parameters here """) 
-        self.updateActor(""" NOTE TO SELF: Fill out the appropriate parameters here """) 
-        self.updateCritic(""" NOTE TO SELF: Fill out the appropriate parameters here """) 
+        advantage_new = self.calcAdvantage(self) 
+        discountedReturns_new = self.calcDiscountedReturns(self) 
+        self.updateActor(self, imu, servo, lidar, actions, log_prob_old) 
+        self.updateCritic(self, states, returns) 
         pass
     
     def updateActor(self, imu, servo, lidar, actions, log_prob_old):
