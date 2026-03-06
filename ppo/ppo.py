@@ -41,7 +41,22 @@ class PPO:
         # self.critic_values_tensor = self.critic.getValues(self.states['imu'], self.states['servo'], self.states['lidar']).detach()
 
     def compute_log_prob(self, imu, servo, lidar, actions):
-        pass
+        # Convert states to tensors if not already
+        imu_tensor = torch.FloatTensor(imu)
+        servo_tensor = torch.FloatTensor(servo)
+        lidar_tensor = torch.FloatTensor(lidar)
+        actions_tensor = torch.FloatTensor(actions)
+        
+        # Forward pass through actor
+        mean, log_std = self.actor(imu_tensor, servo_tensor, lidar_tensor)
+        std = log_std.exp()
+        
+        # Create the distribution
+        dist = torch.distributions.Normal(mean, std)
+        
+        # Compute log probability of the taken actions
+        log_prob = dist.log_prob(actions_tensor).sum(dim=-1)
+        return log_prob
 
     def rollout(self, env, num_steps):
         """
