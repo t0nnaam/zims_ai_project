@@ -14,7 +14,7 @@ FALL_PENALTY = 1
 #MAX_STEP_COUNT
 class RobotEnv:       
     def reset(self):
-        self.robot = Robot() #robot is already intialized to be at default position
+        self.robot = Robot() #robot is already initialized to be at default position
         self.step_count = 0
         return self.get_state()
 

@@ -23,7 +23,7 @@ class DDPGAgent:
         self.critic_optimizer = Adam(learning_rate=0.001)
 
     def update_replay_buffer(self, transition):
-        self.replay_uffer.add(transition)
+        self.replay_buffer.add(transition)
 
     def choose_action(self, state):
         actor_model = self.actor_network.actor_model()
