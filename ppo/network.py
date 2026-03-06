@@ -46,6 +46,27 @@ class Actor(nn.Module):
         log_std = self.tanh(self.log_std_layer(x))
         
         return mean, log_std
+    
+    def get_action(self, state):
+        # Split state into components
+        if state.dim() == 1:
+            state = state.unsqueeze(0)
+        
+        imu = state[:, :6]
+        servo = state[:, 6:18]
+        lidar = state[:, 18:21]
+        
+        # Get mean and log_std from forward pass
+        mean, log_std = self.forward(imu, servo, lidar)
+        std = log_std.exp()
+        
+        # Create normal distribution and sample
+        from torch.distributions import Normal
+        dist = Normal(mean, std)
+        action = dist.sample()
+        log_prob = dist.log_prob(action).sum(dim=-1)
+        
+        return action, log_prob
 
 class Critic(nn.Module):
     def __init__(self):
@@ -83,6 +104,19 @@ class Critic(nn.Module):
         
         return value
     
+    def get_value(self, state):
+        # Split state into components
+        if state.dim() == 1:
+            state = state.unsqueeze(0)
+        
+        imu = state[:, :6]
+        servo = state[:, 6:18]
+        lidar = state[:, 18:21]
+        
+        value = self.forward(imu, servo, lidar)
+        
+        return value
+
     def getValues(self, imu, servo, lidar): 
         with torch.no_grad(): 
             value = self.forward(imu, servo, lidar) 

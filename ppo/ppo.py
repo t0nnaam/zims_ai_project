@@ -88,7 +88,13 @@ class PPO:
             next_state, reward, done, info = env.step(action_np)
 
             # 6. Store transition data
-            self.states.append(state)
+            imu = state[:6]
+            servo = state[6:18]
+            lidar = state[18:21]
+            
+            self.states['imu'].append(imu)
+            self.states['servo'].append(servo)
+            self.states['lidar'].append(lidar)
             self.actions.append(action_np)
             self.rewards.append(reward)
             self.log_probs.append(log_prob.cpu().numpy())
@@ -125,7 +131,11 @@ class PPO:
             Dictionary containing all trajectory data
         """
         data = {
-            'states': np.array(self.states),
+            'states': {
+                'imu': np.array(self.states['imu']),
+                'servo': np.array(self.states['servo']),
+                'lidar': np.array(self.states['lidar'])
+            },
             'actions': np.array(self.actions),
             'rewards': np.array(self.rewards),
             'log_probs': np.array(self.log_probs),
@@ -154,11 +164,14 @@ class PPO:
 
     def update(self):
         """ Main update function - call actor and critic updates """
-        advantage_new = self.calcAdvantage(self) 
-        discountedReturns_new = self.calcDiscountedReturns(self) 
-        self.updateActor(self, imu, servo, lidar, actions, log_prob_old) 
-        self.updateCritic(self, states, returns) 
-        pass
+        # advantage_new = self.calcAdvantage(self) 
+        # discountedReturns_new = self.calcDiscountedReturns(self) 
+        # # self.updateActor(self, imu, servo, lidar, actions, log_prob_old) 
+        # # self.updateCritic(self, states, returns) 
+        returns = self.calcDiscountedReturns(self) 
+        
+        self.updateActor(self, self.states['imu'], self.states['servo'], self.states['lidar'], self.actions, self.log_probs) 
+        self.updateCritic(self, self.states, returns) 
     
     def updateActor(self, imu, servo, lidar, actions, log_prob_old):
         """ Update policy using clipped PPO objective"""

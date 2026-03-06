@@ -74,7 +74,10 @@ def test_rollout():
         data = ppo.rollout(env, num_steps=100)
         
         print(f"✓ Rollout completed successfully")
-        print(f"  - States collected: {data['states'].shape}")
+        # FIXED: Access nested dictionary structure
+        print(f"  - IMU states collected: {data['states']['imu'].shape}")
+        print(f"  - Servo states collected: {data['states']['servo'].shape}")
+        print(f"  - Lidar states collected: {data['states']['lidar'].shape}")
         print(f"  - Actions collected: {data['actions'].shape}")
         print(f"  - Rewards collected: {data['rewards'].shape}")
         print(f"  - Log probs collected: {data['log_probs'].shape}")
@@ -82,8 +85,10 @@ def test_rollout():
         print(f"  - Dones collected: {data['dones'].shape}")
         print(f"  - Average reward: {np.mean(data['rewards']):.4f}")
         
-        # Check if data is correctly stored
-        assert len(data['states']) == 100, "States count mismatch"
+        # FIXED: Check each component of states
+        assert len(data['states']['imu']) == 100, "IMU states count mismatch"
+        assert len(data['states']['servo']) == 100, "Servo states count mismatch"
+        assert len(data['states']['lidar']) == 100, "Lidar states count mismatch"
         assert len(data['actions']) == 100, "Actions count mismatch"
         assert len(data['rewards']) == 100, "Rewards count mismatch"
         
