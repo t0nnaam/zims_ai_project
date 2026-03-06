@@ -237,7 +237,10 @@ class PPO:
         Returns:
             avg_loss: Average loss across epochs
         """
-
+        imu = torch.FloatTensor(states['imu'])
+        servo = torch.FloatTensor(states['servo'])
+        lidar = torch.FloatTensor(states['lidar'])
+        
         # Ensure returns has the correct shape
         if returns.dim() == 1:
             returns = returns.unsqueeze(-1)
