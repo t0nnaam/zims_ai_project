@@ -64,19 +64,28 @@ class PPO:
         episode_reward = 0
         episode_count = 0
 
+        
         # Collect num_steps of data
         for step in range(num_steps):
+            #split each sensor into seperate paramaters for get_action and get_value
+            imu = state[:6]
+            servo = state[6:18]
+            lidar = state[18:21]
+            #make each one into a tensor
+            imu_tensor = torch.FloatTensor(imu).unsqueeze(0)
+            servo_tensor = torch.FloatTensor(servo).unsqueeze(0)
+            lidar_tensor = torch.FloatTensor(lidar).unsqueeze(0)
 
             # 1. Convert state to tensor format
             state_tensor = torch.FloatTensor(state).unsqueeze(0)
 
             # 2.  use Actor to sample action (actor's distribution)
             with torch.no_grad():
-                action, log_prob = self.actor.get_action(state_tensor)
+                action, log_prob = self.actor.get_action(imu_tensor, servo_tensor, lidar_tensor)
 
             # 3. Get value estimate from critic
             with torch.no_grad():
-                value = self.critic.get_value(state_tensor)
+                value = self.critic.get_value(imu_tensor, servo_tensor, lidar_tensor)
 
             # 4. Convert action to numpy array (environment expects numpy)（tensor → numpy）
             if isinstance(action, torch.Tensor):
