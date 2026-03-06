@@ -80,7 +80,6 @@ class PPO:
         episode_reward = 0
         episode_count = 0
 
-        
         # Collect num_steps of data
         for step in range(num_steps):
             #split each sensor into seperate paramaters for get_action and get_value
@@ -165,19 +164,22 @@ class PPO:
         }
         return data
 
-    def calculateTDResidual(self, next_value, done): 
-        mask_tensor = 1.0 - torch.tensor(done, dtype = torch.float32)
+    def calculateTDResidual(self, next_value, rewards, critic_values, dones): 
+        mask_tensor = 1.0 - dones
 
-        next_values = torch.cat([self.critic_values_tensor[1:], next_value.unsqueeze(0)]) 
+        next_values = torch.cat([critic_values[1:], next_value.unsqueeze(0)]) 
         # uses vectorization to calculate the TD residual 
         # current reward + (discount factor * next critic value) - current critic value 
-        return self.rewards_tensor + (self.discount * mask_tensor * next_values) - self.critic_values_tensor[:-1]
+        return rewards + (self.discount * mask_tensor * next_values) - critic_values[:-1]
 
     def calcAdvantage(self, next_value, next_advantage, done = False, gae_parameter = 0.95):
         """ Calculate Advantage Estimation """
+        rewards_tensor = torch.tensor(self.rewards, dtype=torch.float32)
+        dones_tensor = torch.tensor(self.dones, dtype=torch.float32)
+        critic_values_tensor = torch.tensor(self.values, dtype=torch.float32).flatten()
         if done: 
             next_advantage = 0 
-        return self.calculateTDResidual(next_value) + (self.discount * gae_parameter * next_advantage)
+        return self.calculateTDResidual(next_value, rewards_tensor, critic_values_tensor, dones_tensor) + (self.discount * gae_parameter * next_advantage)
 
     def calcDiscountedReturns(self):
         """ Calculate Discounted Returns """
