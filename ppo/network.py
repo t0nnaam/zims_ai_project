@@ -89,7 +89,6 @@ class Critic(nn.Module):
     def __init__(self):
         super(Critic, self).__init__()
         
-    
         self.imu_fc1 = nn.Linear(6, 64)
         self.imu_fc2 = nn.Linear(64, 32)
         
@@ -101,6 +100,7 @@ class Critic(nn.Module):
         
         self.combined_fc = nn.Linear(96, 64)  # 32+32+32 -> 64
         
+        #makes a layer to calculate how good the action is vs what we expected
         self.value_layer = nn.Linear(64, 1)
         
         self.relu = nn.ReLU()
@@ -118,6 +118,8 @@ class Critic(nn.Module):
         combined = torch.cat([x_imu, x_servo, x_lidar], dim=-1)
         x = self.relu(self.combined_fc(combined))
         
+        #decides how good the action was vs what was expected by taking all 64 
+        # values from neurons and calculating a single value
         value = self.value_layer(x)
         
         return value
