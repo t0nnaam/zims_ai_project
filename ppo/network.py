@@ -29,23 +29,23 @@ class Actor(nn.Module):
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
 
-        def forward(self, imu, servo, lidar):
-            x_imu = self.relu(self.imu_fc1(imu))
-            x_imu = self.relu(self.imu_fc2(x_imu))
-            
-            x_servo = self.relu(self.servo_fc1(servo))
-            x_servo = self.relu(self.servo_fc2(x_servo))
+    def forward(self, imu, servo, lidar):
+        x_imu = self.relu(self.imu_fc1(imu))
+        x_imu = self.relu(self.imu_fc2(x_imu))
+        
+        x_servo = self.relu(self.servo_fc1(servo))
+        x_servo = self.relu(self.servo_fc2(x_servo))
 
-            x_lidar = self.relu(self.lidar_fc1(lidar))
-            x_lidar = self.relu(self.lidar_fc2(x_lidar))
-            
-            combined = torch.cat([x_imu, x_servo, x_lidar], dim=-1)
-            x = self.relu(self.combined_fc(combined))
-            
-            mean = self.tanh(self.mean_layer(x))
-            log_std = self.tanh(self.log_std_layer(x))
-            
-            return mean, log_std
+        x_lidar = self.relu(self.lidar_fc1(lidar))
+        x_lidar = self.relu(self.lidar_fc2(x_lidar))
+        
+        combined = torch.cat([x_imu, x_servo, x_lidar], dim=-1)
+        x = self.relu(self.combined_fc(combined))
+        
+        mean = self.tanh(self.mean_layer(x))
+        log_std = self.tanh(self.log_std_layer(x))
+        
+        return mean, log_std
 
 class Critic(nn.Module):
     def __init__(self):

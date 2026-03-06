@@ -19,8 +19,8 @@ class PPO:
         self.critic = Critic()
         
         # Optimizers
-        self.actor_optimizer = torch.optim.Adam(learning_rate=0.001)
-        self.critic_optimizer = torch.optim.Adam(learning_rate=0.001)
+        self.actor_optimizer = torch.optim.Adam(lr=0.001)
+        self.critic_optimizer = torch.optim.Adam(lr=0.001)
         
         # Hyperparameters
         self.discount = discount  # discount factor
