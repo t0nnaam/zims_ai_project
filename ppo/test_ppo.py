@@ -2,6 +2,9 @@ import torch
 import numpy as np
 from ppo import PPO
 
+# Shout out Claude for this test code
+# now we just pray its correct
+
 # Mock environment for testing
 class MockSpiderEnv:
     def __init__(self):
@@ -266,16 +269,68 @@ def test_clear_memory():
         return False
 
 
-# Test 8: Test full training step (once implemented)
+# Test 8: Test full training step
 def test_update_step():
     print("\n" + "=" * 50)
-    print("TEST 8: Update Step (PLACEHOLDER)")
+    print("TEST 8: Update Step")
     print("=" * 50)
     
-    print("⚠ Update function not fully implemented yet")
-    print("  This test will be available once update() is complete")
-    
-    return None
+    try:
+        ppo = PPO(discount=0.99, clipping=0.2, epoch=3, batch_size=32)
+        env = MockSpiderEnv()
+        
+        # Collect trajectory data
+        print("Collecting trajectory data...")
+        ppo.rollout(env, num_steps=128)
+        
+        # Store initial network parameters to verify they change
+        initial_actor_params = [p.clone() for p in ppo.actor.parameters()]
+        initial_critic_params = [p.clone() for p in ppo.critic.parameters()]
+        
+        print(f"Data collected: {len(ppo.rewards)} steps")
+        print(f"Actor parameters before update: {len(list(ppo.actor.parameters()))}")
+        print(f"Critic parameters before update: {len(list(ppo.critic.parameters()))}")
+        
+        # Perform update
+        print("\nPerforming PPO update...")
+        ppo.update()
+        
+        # Check that parameters actually changed
+        actor_changed = False
+        for initial, current in zip(initial_actor_params, ppo.actor.parameters()):
+            if not torch.equal(initial, current):
+                actor_changed = True
+                break
+        
+        critic_changed = False
+        for initial, current in zip(initial_critic_params, ppo.critic.parameters()):
+            if not torch.equal(initial, current):
+                critic_changed = True
+                break
+        
+        print(f"✓ Update completed successfully")
+        print(f"  - Actor parameters changed: {actor_changed}")
+        print(f"  - Critic parameters changed: {critic_changed}")
+        print(f"  - Memory cleared: {len(ppo.states['imu']) == 0}")
+        
+        # Verify memory was cleared
+        assert len(ppo.states['imu']) == 0, "States should be cleared after update"
+        assert len(ppo.actions) == 0, "Actions should be cleared after update"
+        assert len(ppo.rewards) == 0, "Rewards should be cleared after update"
+        
+        # Verify networks updated
+        assert actor_changed, "Actor parameters should change after update"
+        assert critic_changed, "Critic parameters should change after update"
+        
+        print("✓ All update checks passed")
+        
+        return True
+        
+    except Exception as e:
+        print(f"✗ Update step failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
 
 # Run all tests

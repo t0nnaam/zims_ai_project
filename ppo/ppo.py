@@ -146,6 +146,7 @@ class PPO:
 
     def calculateTDResidual(self, next_value, done): 
         mask_tensor = 1.0 - torch.tensor(done, dtype = torch.float32)
+
         next_values = torch.cat([self.critic_values_tensor[1:], next_value.unsqueeze(0)]) 
         # uses vectorization to calculate the TD residual 
         # current reward + (discount factor * next critic value) - current critic value 
@@ -164,14 +165,37 @@ class PPO:
 
     def update(self):
         """ Main update function - call actor and critic updates """
+        # TODO : Get next_value
+        next_value = 0.0
+
         # advantage_new = self.calcAdvantage(self) 
+        advantage_new = self.calcAdvantage(
+            rewards=self.rewards,
+            values=self.values,
+            next_value=next_value,
+            dones=self.dones,
+            gae_parameter=self.advantage  # using your 'advantage' hyperparameter as lambda
+        )
+
         # discountedReturns_new = self.calcDiscountedReturns(self) 
-        # # self.updateActor(self, imu, servo, lidar, actions, log_prob_old) 
-        # # self.updateCritic(self, states, returns) 
-        returns = self.calcDiscountedReturns(self) 
+        discountedReturns_new = self.calcDiscountedReturns(
+            rewards=self.rewards,
+            dones=self.dones
+        )
         
+        # May need to normalize advantages
+        # TODO: Convert data to tensor
+
+        # TODO: Update for multiple epochs
+        # TODO: Create Minibatches (helper function)
+        
+        # self.updateActor(self, imu, servo, lidar, actions, log_prob_old) 
         self.updateActor(self, self.states['imu'], self.states['servo'], self.states['lidar'], self.actions, self.log_probs) 
-        self.updateCritic(self, self.states, returns) 
+        
+        # self.updateCritic(self, states, returns) 
+        self.updateCritic(self, self.states, self.returns) 
+
+        self.clear_memory()
     
     def updateActor(self, imu, servo, lidar, actions, log_prob_old):
         """ Update policy using clipped PPO objective"""
