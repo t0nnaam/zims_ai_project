@@ -40,6 +40,10 @@ class PPO:
         # self.rewards_tensor = torch.tensor(self.rewards, dtype = torch.float32)
         # self.critic_values_tensor = self.critic.getValues(self.states['imu'], self.states['servo'], self.states['lidar']).detach()
 
+    #def choose_action(obs):
+        #output action, log_prob, value
+
+
     def compute_log_prob(self, imu, servo, lidar, actions):
         # Convert states to tensors if not already
         imu_tensor = torch.FloatTensor(imu)
@@ -57,6 +61,16 @@ class PPO:
         # Compute log probability of the taken actions
         log_prob = dist.log_prob(actions_tensor).sum(dim=-1)
         return log_prob
+
+    #def save_model():
+        #actor.save_checkpoint
+        #critc.save_checkpoint
+    
+    #def load_model():
+        #actor.load_checkpoint
+        #critic.load_checkpoint
+
+    #def save_memory(obs, action, log_prob, value, reward, done)
 
     def rollout(self, env, num_steps):
         """

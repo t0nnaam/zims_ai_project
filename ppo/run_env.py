@@ -1,7 +1,7 @@
 import numpy as np
 from spider_env import SpiderEnv
 import time
-from agent import Agent
+from ppo import PPO
 import os
 
 log_file = "reward_log2.txt"
@@ -20,22 +20,22 @@ obs, info = env.reset()
 input_dims = env.observation_space.shape[0]
 n_actions = env.action_space.shape[0]
 
-agent = Agent(n_inputs=input_dims, n_actions=n_actions)
+agent = PPO() #1 intialize agent 
 #agent.load_models()
-train = False
+train = True
 episode = 0
 episode_reward = 0
 
 for _ in range(1000000):
 
-    action, log_prob, value = agent.choose_action(obs)
+    c = agent.choose_action(obs)
 
     obs, reward, terminated, truncated, info = env.step(action)
 
     episode_reward += reward
     done = terminated or truncated
 
-    agent.remember(obs, action, log_prob, value, reward, done)
+    agent.save_memory(obs, action, log_prob, value, reward, done)
 
     if done:
         episode += 1
@@ -46,7 +46,7 @@ for _ in range(1000000):
         log_episode_reward(episode, mean_reward)
 
         if train:
-            agent.learn()
+            agent.update()
 
         if episode % 10 == 0 and train:
             print(f"EPISODE: {episode}")
