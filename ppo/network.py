@@ -38,7 +38,7 @@ class Actor(nn.Module):
         self.lidar_fc2 = nn.Linear(64, 32)
         
         #taking all the inputs from all the neurons and combining them to 64
-        self.combined_input = nn.Linear(96, 64)  # 32+32+32 -> 64
+        self.combined_fc = nn.Linear(96, 64)
         
         #takes 64 inputs (from the combined input) and makes it into a vector that has 12 outputs
         #one for each of the servo motors
@@ -111,7 +111,7 @@ class Critic(nn.Module):
         self.lidar_fc1 = nn.Linear(3, 64)
         self.lidar_fc2 = nn.Linear(64, 32)
         
-        self.combined_fc = nn.Linear(96, 64)  # 32+32+32 -> 64
+        self.combined_fc = nn.Linear(96, 64)
         
         #makes a layer to calculate how good the action is vs what we expected
         self.value_layer = nn.Linear(64, 1)
