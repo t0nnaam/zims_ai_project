@@ -248,14 +248,24 @@ def test_clear_memory():
         # Collect some data
         ppo.rollout(env, num_steps=50)
         
-        print(f"Before clear: {len(ppo.states)} states")
+        # FIXED: Check dictionary length properly
+        print(f"Before clear: {len(ppo.states['imu'])} IMU states")
+        print(f"Before clear: {len(ppo.states['servo'])} servo states")
+        print(f"Before clear: {len(ppo.states['lidar'])} lidar states")
+        print(f"Before clear: {len(ppo.actions)} actions")
         
         # Clear memory
         ppo.clear_memory()
         
-        print(f"After clear: {len(ppo.states)} states")
+        print(f"After clear: {len(ppo.states['imu'])} IMU states")
+        print(f"After clear: {len(ppo.states['servo'])} servo states")
+        print(f"After clear: {len(ppo.states['lidar'])} lidar states")
+        print(f"After clear: {len(ppo.actions)} actions")
         
-        assert len(ppo.states) == 0, "States should be empty"
+        # FIXED: Check each component of the states dictionary
+        assert len(ppo.states['imu']) == 0, "IMU states should be empty"
+        assert len(ppo.states['servo']) == 0, "Servo states should be empty"
+        assert len(ppo.states['lidar']) == 0, "Lidar states should be empty"
         assert len(ppo.actions) == 0, "Actions should be empty"
         assert len(ppo.rewards) == 0, "Rewards should be empty"
         
