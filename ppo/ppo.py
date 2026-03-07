@@ -1,19 +1,18 @@
 # from import *
 from network import Actor, Critic
-# from replay_buffer import ReplayBuffer
 import random
 import torch
 import torch.nn as nn
 import numpy as np
-# from tensorflow.keras.optimizers import Adam
 
-# Make a branch when you work on the code and then push it to the repo
- 
-# I started an outline but we still need to change the parameters on the functions
+# TODO 
+# Write: choose_action, save_model, load_model, save_memory functions
+# Bug fix (from test cases): update (learn) function, Advantage Calculation
+# If you can, download pybullet and gymnasium so you can run the test environment
 
 class PPO:
     def __init__(self, discount=0.99, clipping=0.2, advantage=0.9, epoch=10, batch_size=64):
-        # the values here are sorta placeholders rn - we can test and change later
+        # the values here are placeholders rn - we can test and change later
         # Networks
         self.actor = Actor()
         self.critic = Critic()
@@ -42,7 +41,6 @@ class PPO:
 
     #def choose_action(obs):
         #output action, log_prob, value
-
 
     def compute_log_prob(self, imu, servo, lidar, actions):
         # Convert states to tensors if not already
