@@ -39,23 +39,25 @@ class PPO:
         # self.critic_values_tensor = self.critic.getValues(self.states['imu'], self.states['servo'], self.states['lidar']).detach()
 
 
-    def choose_action(self, obs):
+    def choose_action(self, state):
         """
         Choose action given observation
         """
-        # Splits obs -- might write it differently i'm just using obs cuz thats what they wrote in office hours
-        imu = obs[:6]
-        servo = obs[6:18]
-        lidar = obs[18:21]
-        
-        # Convert to tensors and add batch dimension
+        #split each sensor into separate paramaters for get_action and get_value
+        imu = state[:6]
+        servo = state[6:18]
+        lidar = state[18:21]
+
+        # make each one into a tensor
         imu_tensor = torch.FloatTensor(imu).unsqueeze(0)
         servo_tensor = torch.FloatTensor(servo).unsqueeze(0)
         lidar_tensor = torch.FloatTensor(lidar).unsqueeze(0)
         
         # Get action from actor
         with torch.no_grad():
+            # use Actor to sample action (actor's distribution)
             action, log_prob = self.actor.get_action(imu_tensor, servo_tensor, lidar_tensor)
+            # Get value estimate from critic
             value = self.critic.get_value(imu_tensor, servo_tensor, lidar_tensor)
         
         # Convert to numpy for environment
@@ -131,7 +133,7 @@ class PPO:
 
     def save_memory(self, obs, action, log_prob, value, reward, done):
         """
-        Store transition in memory buffers
+        Store transition data in memory buffers
         """
         # Split observation into components
         imu = obs[:6]
@@ -178,52 +180,26 @@ class PPO:
         episode_reward = 0
         episode_count = 0
 
+        # Note: A lot of the stuff here was moved to the functions we were told to write in office hours
         # Collect num_steps of data
         for step in range(num_steps):
-            #split each sensor into separate paramaters for get_action and get_value
-            imu = state[:6]
-            servo = state[6:18]
-            lidar = state[18:21]
-            #make each one into a tensor
-            imu_tensor = torch.FloatTensor(imu).unsqueeze(0)
-            servo_tensor = torch.FloatTensor(servo).unsqueeze(0)
-            lidar_tensor = torch.FloatTensor(lidar).unsqueeze(0)
+            # Use choose_action to get action, log_prob, and value 
+            action, log_prob, value = self.choose_action(state)
+    
+            # Convert state to tensor format
+            # state_tensor = torch.FloatTensor(state).unsqueeze(0)
 
-            # 1. Convert state to tensor format
-            state_tensor = torch.FloatTensor(state).unsqueeze(0)
+            # Execute action in environment
+            next_state, reward, done, info = env.step(action)
 
-            # 2.  use Actor to sample action (actor's distribution)
-            with torch.no_grad():
-                action, log_prob = self.actor.get_action(imu_tensor, servo_tensor, lidar_tensor)
+            # Store transition data using save_memory
+            self.save_memory(state, action, log_prob, value, reward, done)
 
-            # 3. Get value estimate from critic
-            with torch.no_grad():
-                value = self.critic.get_value(imu_tensor, servo_tensor, lidar_tensor)
-
-            # 4. Convert action to numpy array (environment expects numpy)（tensor → numpy）
-            if isinstance(action, torch.Tensor):
-                action_np = action.cpu().numpy().flatten()
-            else:
-                action_np = action
-
-            # 5. Execute action in environment
-            next_state, reward, done, info = env.step(action_np)
-
-            # 6. Store transition data
-            self.states['imu'].append(imu)
-            self.states['servo'].append(servo)
-            self.states['lidar'].append(lidar)
-            self.actions.append(action_np)
-            self.rewards.append(reward)
-            self.log_probs.append(log_prob.cpu().numpy())
-            self.values.append(value.cpu().numpy())
-            self.dones.append(done)
-
-            # 7. Update state and statistics
+            # Update state and statistics
             state = next_state
             episode_reward += reward
 
-            # 8. Reset environment if episode is done
+            # Reset environment if episode is done
             if done:
                 episode_count += 1
                 episode_rewards.append(episode_reward)
