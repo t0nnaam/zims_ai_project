@@ -6,7 +6,6 @@ import torch.nn as nn
 import numpy as np
 
 # TODO 
-# Write: choose_action, save_model, load_model, save_memory functions
 # Bug fix (from test cases): update (learn) function, Advantage Calculation
 # If you can, download pybullet and gymnasium so you can run the test environment
 
@@ -35,12 +34,37 @@ class PPO:
         self.rewards = []
         self.values = []
         self.log_probs = [] # store old log probs for PPO
-        self.dones = [] # added from zihanwang126-branch
+        self.dones = []
         # self.rewards_tensor = torch.tensor(self.rewards, dtype = torch.float32)
         # self.critic_values_tensor = self.critic.getValues(self.states['imu'], self.states['servo'], self.states['lidar']).detach()
 
-    #def choose_action(obs):
-        #output action, log_prob, value
+
+    def choose_action(self, obs):
+        """
+        Choose action given observation
+        """
+        # Splits obs -- might write it differently i'm just using obs cuz thats what they wrote in office hours
+        imu = obs[:6]
+        servo = obs[6:18]
+        lidar = obs[18:21]
+        
+        # Convert to tensors and add batch dimension
+        imu_tensor = torch.FloatTensor(imu).unsqueeze(0)
+        servo_tensor = torch.FloatTensor(servo).unsqueeze(0)
+        lidar_tensor = torch.FloatTensor(lidar).unsqueeze(0)
+        
+        # Get action from actor
+        with torch.no_grad():
+            action, log_prob = self.actor.get_action(imu_tensor, servo_tensor, lidar_tensor)
+            value = self.critic.get_value(imu_tensor, servo_tensor, lidar_tensor)
+        
+        # Convert to numpy for environment
+        action_np = action.cpu().numpy().flatten()
+        log_prob_np = log_prob.cpu().item()
+        value_np = value.cpu().item()
+    
+        return action_np, log_prob_np, value_np
+
 
     def compute_log_prob(self, imu, servo, lidar, actions):
         # Convert states to tensors if not already
@@ -60,15 +84,77 @@ class PPO:
         log_prob = dist.log_prob(actions_tensor).sum(dim=-1)
         return log_prob
 
-    #def save_model():
-        #actor.save_checkpoint
-        #critc.save_checkpoint
+
+    def save_model(self, filepath): 
+        """
+        Save actor and critic + optimizer states
+        """
+        checkpoint = {
+            'actor_state_dict': self.actor.state_dict(),
+            'critic_state_dict': self.critic.state_dict(),
+            'actor_optimizer_state_dict': self.actor_optimizer.state_dict(),
+            'critic_optimizer_state_dict': self.critic_optimizer.state_dict(),
+            'hyperparameters': {
+                'discount': self.discount,
+                'clipping': self.clipping,
+                'advantage': self.advantage,
+                'epochs': self.epochs,
+                'batch_size': self.batch_size,
+                'max_grad_norm': self.max_grad_norm
+            }
+        }
     
-    #def load_model():
+        torch.save(checkpoint, filepath)
+        #actor.save_checkpoint
+        #critic.save_checkpoint
+    
+
+    def load_model(self, filepath):
+        """
+        Load actor and critic + optimizer states
+        """
+        checkpoint = torch.load(filepath)
+
+        # Load network parameters
+        self.actor.load_state_dict(checkpoint['actor_state_dict'])
+        self.critic.load_state_dict(checkpoint['critic_state_dict'])
+        
+        # Load optimizer states
+        self.actor_optimizer.load_state_dict(checkpoint['actor_optimizer_state_dict'])
+        self.critic_optimizer.load_state_dict(checkpoint['critic_optimizer_state_dict'])
+        
+        # do we need to load hyperparameters?
+
         #actor.load_checkpoint
         #critic.load_checkpoint
 
-    #def save_memory(obs, action, log_prob, value, reward, done)
+
+    def save_memory(self, obs, action, log_prob, value, reward, done):
+        """
+        Store transition in memory buffers
+        """
+        # Split observation into components
+        imu = obs[:6]
+        servo = obs[6:18]
+        lidar = obs[18:21]
+        
+        # Store each component
+        self.states['imu'].append(imu)
+        self.states['servo'].append(servo)
+        self.states['lidar'].append(lidar)
+        self.actions.append(action)
+        self.rewards.append(reward)
+        
+        # Convert log_prob and value to scalars if they're arrays
+        if isinstance(log_prob, np.ndarray):
+            log_prob = log_prob.item()
+        if isinstance(value, np.ndarray):
+            value = value.item()
+        
+        self.log_probs.append(log_prob)
+        self.values.append(value)
+        self.dones.append(done)
+
 
     def rollout(self, env, num_steps):
         """
@@ -94,7 +180,7 @@ class PPO:
 
         # Collect num_steps of data
         for step in range(num_steps):
-            #split each sensor into seperate paramaters for get_action and get_value
+            #split each sensor into separate paramaters for get_action and get_value
             imu = state[:6]
             servo = state[6:18]
             lidar = state[18:21]
@@ -154,6 +240,7 @@ class PPO:
         # return collected data
         return self.get_data()
 
+
     def get_data(self):
         """
         helper function from zihanwang126-branch
@@ -176,6 +263,7 @@ class PPO:
         }
         return data
 
+
     def calculateTDResidual(self, next_value, rewards, critic_values, dones): 
         mask_tensor = 1.0 - dones
 
@@ -183,6 +271,7 @@ class PPO:
         # uses vectorization to calculate the TD residual 
         # current reward + (discount factor * next critic value) - current critic value 
         return rewards + (self.discount * mask_tensor * next_values) - critic_values[:-1]
+
 
     def calcAdvantage(self, next_value, next_advantage, done = False, gae_parameter = 0.95):
         """ Calculate Advantage Estimation """
@@ -193,11 +282,14 @@ class PPO:
             next_advantage = 0 
         return self.calculateTDResidual(next_value, rewards_tensor, critic_values_tensor, dones_tensor) + (self.discount * gae_parameter * next_advantage)
 
+
     def calcDiscountedReturns(self):
         """ Calculate Discounted Returns """
 	    # (discounted factor ^ range from 0 to the number of rows of the rewards tensor) * the rewards tensor
         return self.discount ** torch.arange(self.rewards_tensor.size(0)) * self.rewards_tensor
 
+
+    # update = learn function
     def update(self):
         """ Main update function - call actor and critic updates """
         # TODO : Get next_value
@@ -232,6 +324,7 @@ class PPO:
 
         self.clear_memory()
     
+
     def updateActor(self, imu, servo, lidar, actions, log_prob_old):
         """ Update policy using clipped PPO objective"""
         # with torch.GradientTape() as tape:
@@ -253,6 +346,7 @@ class PPO:
         actor_loss.backward()
         self.actor_optimizer.step()
     
+
     def updateCritic(self, states, returns):
         """
         From jennyf12-patch-1
@@ -307,6 +401,7 @@ class PPO:
 
         return avg_loss
     
+
     def clear_memory(self):
         """
         from zihanwang126-branch
