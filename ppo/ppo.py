@@ -240,29 +240,91 @@ class PPO:
         return data
 
 
-    def calculateTDResidual(self, next_value, rewards, critic_values, dones): 
+    def calculateTDResidual(self, next_value, rewards, values, dones): 
+        # Convert to tensors
+        rewards = torch.FloatTensor(rewards)
+        values = torch.FloatTensor(values)
+        dones = torch.FloatTensor(dones)
+
+        # Handle next_value - ensure it's a tensor
+        if isinstance(next_value, (int, float)):
+            next_value = torch.tensor([next_value], dtype=torch.float32)
+        elif next_value.dim() > 1:
+            next_value = next_value.squeeze()
+
+        # Build next_values
+        # next_values = torch.cat([critic_values[1:], next_value.unsqueeze(0)]) 
+        next_values = torch.cat([values[1:], next_value])
+
+        # Mask for non-terminal states (1 = not done, 0 = done)
         mask_tensor = 1.0 - dones
 
-        next_values = torch.cat([critic_values[1:], next_value.unsqueeze(0)]) 
         # uses vectorization to calculate the TD residual 
         # current reward + (discount factor * next critic value) - current critic value 
-        return rewards + (self.discount * mask_tensor * next_values) - critic_values[:-1]
+        td_residual = rewards + (self.discount * mask_tensor * next_values) - values
+        
+        return td_residual 
 
 
-    def calcAdvantage(self, next_value, next_advantage, done = False, gae_parameter = 0.95):
+    def calcAdvantage(self, rewards, values, next_value, dones, gae_parameter = 0.95):
         """ Calculate Advantage Estimation """
-        rewards_tensor = torch.tensor(self.rewards, dtype=torch.float32)
-        dones_tensor = torch.tensor(self.dones, dtype=torch.float32)
-        critic_values_tensor = torch.tensor(self.values, dtype=torch.float32).flatten()
-        if done: 
-            next_advantage = 0 
-        return self.calculateTDResidual(next_value, rewards_tensor, critic_values_tensor, dones_tensor) + (self.discount * gae_parameter * next_advantage)
+        # Convert to tensors
+        rewards = torch.FloatTensor(rewards)
+        values = torch.FloatTensor(values)
+        dones = torch.FloatTensor(dones)
+        # rewards_tensor = torch.tensor(self.rewards, dtype=torch.float32)
+        # dones_tensor = torch.tensor(self.dones, dtype=torch.float32)
+        # critic_values_tensor = torch.tensor(self.values, dtype=torch.float32).flatten()
+
+        # Handle next_value
+        if isinstance(next_value, (int, float)):
+            next_value = torch.tensor([next_value], dtype=torch.float32)
+        elif next_value.dim() > 1:
+            next_value = next_value.squeeze()
+
+        # if done: 
+        advantages = [] = 0 
+        
+        # Calculate advantages backwards through the trajectory
+        for t in reversed(range(len(rewards))):
+            # Determine next value for this timestep
+            if t == len(rewards) - 1:
+                next_val = next_value
+                next_done = 0  # Assume not done for bootstrap
+            else:
+                next_val = values[t + 1]
+                next_done = dones[t]
+            
+            # return self.calculateTDResidual(next_value, rewards_tensor, critic_values_tensor, dones_tensor) + (self.discount * gae_parameter * next_advantage)
+            # TD error = current reward + (discount * next value * not_done) - current value
+            tdError = rewards[t] + self.discount * next_val * (1 - next_done) - values[t]
+            
+            # GAE (advantage) = TD error + (discount * gae_lambda * not_done * previous advantage)
+            gae = tdError + self.discount * gae_parameter * (1 - next_done) * gae
+            advantages.insert(0, gae)
+
+            return torch.FloatTensor(advantages)
 
 
-    def calcDiscountedReturns(self):
+    def calcDiscountedReturns(self, rewards, dones):
         """ Calculate Discounted Returns """
 	    # (discounted factor ^ range from 0 to the number of rows of the rewards tensor) * the rewards tensor
-        return self.discount ** torch.arange(self.rewards_tensor.size(0)) * self.rewards_tensor
+        # Return = current reward + (discount * next return)
+        returns = []
+        discounted_return = 0
+        
+        # Calculate returns backwards through the trajectory
+        for reward, done in zip(reversed(rewards), reversed(dones)):
+            # Reset return to 0 if episode ended
+            if done:
+                discounted_return = 0
+            
+            # Return = current reward + (discount * next return)
+            discounted_return = reward + self.discount * discounted_return
+            returns.insert(0, discounted_return)
+        
+        # return self.discount ** torch.arange(self.rewards_tensor.size(0)) * self.rewards_tensor
+        return torch.FloatTensor(returns)
 
 
     # update = learn function
@@ -278,11 +340,7 @@ class PPO:
         # otherwise estimate from critic    
         else:
             # Get the last state and estimate its value
-            last_obs = np.concatenate([
-                self.states['imu'][-1],
-                self.states['servo'][-1],
-                self.states['lidar'][-1]
-            ])
+            last_obs = np.concatenate([self.states['imu'][-1], self.states['servo'][-1], self.states['lidar'][-1]])
             imu_t, servo_t, lidar_t = self._obs_to_tensors(last_obs)
             with torch.no_grad():
                 next_value = self.critic.get_value(imu_t, servo_t, lidar_t).item()
@@ -295,10 +353,7 @@ class PPO:
             gae_parameter=self.advantage  # advantage = lambda
         )
 
-        returns = self.calcDiscountedReturns(
-            rewards=self.rewards,
-            dones=self.dones
-        )
+        returns = self.calcDiscountedReturns(rewards=self.rewards, dones=self.dones)
 
         # Convert data to tensor
         imu_tensor = torch.FloatTensor(np.array(self.states['imu']))
