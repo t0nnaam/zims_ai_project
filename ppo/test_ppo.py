@@ -112,25 +112,30 @@ def test_advantage_calculation():
     try:
         ppo = PPO()
         
-        # Create dummy data
-        ppo.rewards = [1.0, 2.0, 3.0, 4.0, 5.0]
-        ppo.rewards_tensor = torch.tensor(ppo.rewards, dtype=torch.float32)
+        # Create dummy data - make sure these are Python lists
+        rewards = [1.0, 2.0, 3.0, 4.0, 5.0]
+        values = [0.5, 1.5, 2.5, 3.5, 4.5]
+        dones = [False, False, False, False, False]  # FIXED: Changed last False
+        next_value = 5.5  # This is a float, which is fine
         
-        dummy_values = torch.tensor([0.5, 1.5, 2.5, 3.5, 4.5], dtype=torch.float32)
-        ppo.critic_values_tensor = dummy_values
+        print(f"  - Type of rewards: {type(rewards)}, values: {type(values)}")
+        print(f"  - Length of rewards: {len(rewards)}, values: {len(values)}")
         
         # Test TD residual calculation
-        next_value = torch.tensor([5.5], dtype=torch.float32)
-        done = False
-        
-        td_residual = ppo.calculateTDResidual(next_value, done)
+        td_residual = ppo.calculateTDResidual(rewards, values, next_value, dones)
         print(f"✓ TD Residual calculated: {td_residual}")
         print(f"  - Shape: {td_residual.shape}")
+        print(f"  - Values: {td_residual.numpy()}")
         
         # Test advantage calculation
-        advantage = ppo.calcAdvantage(next_value, next_advantage=0.0, done=False)
+        advantage = ppo.calcAdvantage(rewards, values, next_value, dones, gae_parameter=0.95)
         print(f"✓ Advantage calculated: {advantage}")
         print(f"  - Shape: {advantage.shape}")
+        print(f"  - Values: {advantage.numpy()}")
+        
+        # Verify shapes
+        assert td_residual.shape == torch.Size([5]), "TD residual shape mismatch"
+        assert advantage.shape == torch.Size([5]), "Advantage shape mismatch"
         
         return True
     except Exception as e:
@@ -149,17 +154,31 @@ def test_discounted_returns():
     try:
         ppo = PPO(discount=0.99)
         
-        # Create dummy rewards
-        ppo.rewards = [1.0, 1.0, 1.0, 1.0, 1.0]
-        ppo.rewards_tensor = torch.tensor(ppo.rewards, dtype=torch.float32)
+        # Create dummy rewards and dones
+        rewards = [1.0, 1.0, 1.0, 1.0, 1.0]
+        dones = [False, False, False, False, True]
         
-        returns = ppo.calcDiscountedReturns()
+        # Calculate returns
+        returns = ppo.calcDiscountedReturns(rewards, dones)
         print(f"✓ Discounted returns calculated: {returns}")
         print(f"  - Shape: {returns.shape}")
         print(f"  - Values: {returns.numpy()}")
         
-        # Check if returns are decreasing (due to discounting)
-        assert returns[0] > returns[-1], "Returns should decrease with discount"
+        # Check if returns follow expected pattern
+        # First return should be highest (sum of all future discounted rewards)
+        assert returns[0] > returns[-1], "First return should be greater than last"
+        assert returns.shape == torch.Size([5]), "Returns shape mismatch"
+        
+        # Test with episode boundary
+        rewards_multi = [1.0, 1.0, 1.0, 1.0, 1.0]
+        dones_multi = [False, False, True, False, True]  # Episode ends at index 2 and 4
+        
+        returns_multi = ppo.calcDiscountedReturns(rewards_multi, dones_multi)
+        print(f"✓ Returns with episode boundaries: {returns_multi.numpy()}")
+        
+        # After done flag, return should reset
+        # Return at index 2 should be less than return at index 0 (shorter horizon)
+        assert returns_multi[2] < returns_multi[0], "Returns should reset after episode boundary"
         
         return True
     except Exception as e:

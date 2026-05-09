@@ -5,8 +5,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-# TODO 
-# Bug fix (from test cases): update (learn) function, Advantage Calculation
 # If you can, download pybullet and gymnasium so you can run the test environment
 
 class PPO:
@@ -38,6 +36,41 @@ class PPO:
         # self.rewards_tensor = torch.tensor(self.rewards, dtype = torch.float32)
         # self.critic_values_tensor = self.critic.getValues(self.states['imu'], self.states['servo'], self.states['lidar']).detach()
 
+
+    def _split_observation(self, obs):
+        """
+        Helper function to split observation into sensor components
+        
+        Args:
+            obs: Full observation array of shape [21]
+        
+        Returns:
+            tuple: (imu, servo, lidar) as numpy arrays
+        """
+        imu = obs[:6]
+        servo = obs[6:18]
+        lidar = obs[18:21]
+        return imu, servo, lidar
+
+
+    def _obs_to_tensors(self, obs):
+        """
+        Helper function to convert observation to tensor components
+        
+        Args:
+            obs: Full observation array of shape [21]
+        
+        Returns:
+            tuple: (imu_tensor, servo_tensor, lidar_tensor) with batch dimension
+        """
+        imu, servo, lidar = self._split_observation(obs)
+        
+        imu_tensor = torch.FloatTensor(imu).unsqueeze(0)
+        servo_tensor = torch.FloatTensor(servo).unsqueeze(0)
+        lidar_tensor = torch.FloatTensor(lidar).unsqueeze(0)
+        
+        return imu_tensor, servo_tensor, lidar_tensor
+    
 
     def choose_action(self, state):
         """
@@ -240,7 +273,7 @@ class PPO:
         return data
 
 
-    def calculateTDResidual(self, next_value, rewards, values, dones): 
+    def calculateTDResidual(self, rewards, values, next_value, dones): 
         # Convert to tensors
         rewards = torch.FloatTensor(rewards)
         values = torch.FloatTensor(values)
@@ -272,9 +305,6 @@ class PPO:
         rewards = torch.FloatTensor(rewards)
         values = torch.FloatTensor(values)
         dones = torch.FloatTensor(dones)
-        # rewards_tensor = torch.tensor(self.rewards, dtype=torch.float32)
-        # dones_tensor = torch.tensor(self.dones, dtype=torch.float32)
-        # critic_values_tensor = torch.tensor(self.values, dtype=torch.float32).flatten()
 
         # Handle next_value
         if isinstance(next_value, (int, float)):
@@ -283,7 +313,8 @@ class PPO:
             next_value = next_value.squeeze()
 
         # if done: 
-        advantages = [] = 0 
+        advantages = [] 
+        gae = 0;
         
         # Calculate advantages backwards through the trajectory
         for t in reversed(range(len(rewards))):
@@ -303,7 +334,7 @@ class PPO:
             gae = tdError + self.discount * gae_parameter * (1 - next_done) * gae
             advantages.insert(0, gae)
 
-            return torch.FloatTensor(advantages)
+        return torch.FloatTensor(advantages)
 
 
     def calcDiscountedReturns(self, rewards, dones):
@@ -327,7 +358,6 @@ class PPO:
         return torch.FloatTensor(returns)
 
 
-    # update = learn function
     def update(self):
         """ 
         update = learn function
