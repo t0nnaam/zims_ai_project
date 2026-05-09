@@ -15,6 +15,9 @@ from ppo import PPO
 TOTAL_STEPS   = 1_000_000   # how many env steps to train for in total
 SAVE_INTERVAL = 10          # save model weights every N episodes
 LOG_FILE      = "reward_log.txt"
+MODEL_PATH    = "./models/spider_ppo.pth"
+
+RESUME_TRAINING = True 
 train = True # set to True to train, False to just run with saved weights (if they exist)
 
 
@@ -24,6 +27,14 @@ obs, _= env.reset()
 
 # agent = PPO(n_actions=env.action_space.shape[0], input_dims=env.observation_space.shape[0])
 agent = PPO()
+
+# NEW: Load existing model if resuming or just running
+if RESUME_TRAINING:
+    agent.load_model(MODEL_PATH)
+    print("Model loaded - resuming training")
+elif not train:
+    agent.load_model(MODEL_PATH)
+
 if not train:
     agent.load_models()   # loads saved weights if they exist, otherwise starts fresh
 
@@ -90,7 +101,7 @@ for step in range(TOTAL_STEPS):
                 # f"a_loss {actor_loss:.4f} | c_loss {critic_loss:.4f}"
             )
             # agent.save_models()
-            agent.save_model("./models/spider_ppo.pth")
+            agent.save_model(MODEL_PATH)
 
         obs, _ = env.reset()
         episode_reward = 0.0
