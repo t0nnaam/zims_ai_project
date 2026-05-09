@@ -83,7 +83,7 @@ JOINT_NAMES = [
     "Revolute 105",  # leg 4 – wrist     (XY-diag,   PyBullet idx 11)
 ]
 
-_DEFAULT_URDF = os.path.join("SpdrBot_description_v2", "urdf", "SpdrBot.urdf")
+_DEFAULT_URDF = os.path.join("SpdrBot_description", "urdf", "SpdrBot.urdf")
 URDF_PATH = os.environ.get("SPDRBOT_URDF", _DEFAULT_URDF)
 
 # ── Standing-pose target angles (radians) ─────────────────────────────────────

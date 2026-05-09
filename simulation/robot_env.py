@@ -1,6 +1,6 @@
 # COPIED FROM REFERENCE CODE
 
-from robot import Robot
+from zims_ai_project.simulation.robot import Robot
 
 MOVE_REWARD = 1
 FALL_PENALTY = 1
