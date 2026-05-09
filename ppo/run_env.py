@@ -9,20 +9,20 @@ it experienced, then a new episode starts automatically.
 import os
 import numpy as np
 from spider_env_new import SpiderEnv
-from agent import Agent
+from ppo import PPO
 
 # ── Config ────────────────────────────────────────────────────────────────────
 TOTAL_STEPS   = 1_000_000   # how many env steps to train for in total
 SAVE_INTERVAL = 10          # save model weights every N episodes
 LOG_FILE      = "reward_log.txt"
-train = False # set to True to train, False to just run with saved weights (if they exist)
+train = True # set to True to train, False to just run with saved weights (if they exist)
 
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 env   = SpiderEnv(render_mode="human")
 obs, _= env.reset()
 
-agent = Agent(n_actions=env.action_space.shape[0], input_dims=env.observation_space.shape[0])
+agent = PPO(n_actions=env.action_space.shape[0], input_dims=env.observation_space.shape[0])
 if not train:
     agent.load_models()   # loads saved weights if they exist, otherwise starts fresh
 
