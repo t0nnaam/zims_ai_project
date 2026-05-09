@@ -287,8 +287,7 @@ class PPO:
             with torch.no_grad():
                 next_value = self.critic.get_value(imu_t, servo_t, lidar_t).item()
 
-        # advantage_new = self.calcAdvantage(self) 
-        advantage_new = self.calcAdvantage(
+        advantages = self.calcAdvantage(
             rewards=self.rewards,
             values=self.values,
             next_value=next_value,
@@ -296,8 +295,7 @@ class PPO:
             gae_parameter=self.advantage  # advantage = lambda
         )
 
-        # discountedReturns_new = self.calcDiscountedReturns(self) 
-        discountedReturns_new = self.calcDiscountedReturns(
+        returns = self.calcDiscountedReturns(
             rewards=self.rewards,
             dones=self.dones
         )
@@ -334,24 +332,10 @@ class PPO:
                 batch_returns = returns[batch_indices]
                 
                 # Update actor
-                # self.updateActor(self, imu, servo, lidar, actions, log_prob_old) 
-                self.updateActor(
-                    batch_imu,
-                    batch_servo,
-                    batch_lidar,
-                    batch_actions,
-                    batch_old_log_probs,
-                    batch_advantages
-                )
+                self.updateActor(batch_imu, batch_servo, batch_lidar, batch_actions, batch_old_log_probs, batch_advantages)
                 
                 # Update critic
-                # self.updateCritic(self, states, returns) 
-                self.updateCritic(
-                    batch_imu,
-                    batch_servo,
-                    batch_lidar,
-                    batch_returns
-                )
+                self.updateCritic(batch_imu, batch_servo, batch_lidar, batch_returns)
 
         self.clear_memory()
     
