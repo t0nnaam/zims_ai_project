@@ -8,7 +8,7 @@ it experienced, then a new episode starts automatically.
 
 import os
 import numpy as np
-from zims_ai_project.simulation.spider_env_new import SpiderEnv
+from spider_env_new import SpiderEnv
 from ppo import PPO
 
 # ── Config ────────────────────────────────────────────────────────────────────
