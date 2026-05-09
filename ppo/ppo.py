@@ -267,9 +267,25 @@ class PPO:
 
     # update = learn function
     def update(self):
-        """ Main update function - call actor and critic updates """
-        # TODO : Get next_value
-        next_value = 0.0
+        """ 
+        update = learn function
+        Calculate advantages, create minibatches, call actor and critic updates 
+        """
+        # get next value
+        # if last state was terminal return 0
+        if self.dones[-1]:
+            next_value = 0.0
+        # otherwise estimate from critic    
+        else:
+            # Get the last state and estimate its value
+            last_obs = np.concatenate([
+                self.states['imu'][-1],
+                self.states['servo'][-1],
+                self.states['lidar'][-1]
+            ])
+            imu_t, servo_t, lidar_t = self._obs_to_tensors(last_obs)
+            with torch.no_grad():
+                next_value = self.critic.get_value(imu_t, servo_t, lidar_t).item()
 
         # advantage_new = self.calcAdvantage(self) 
         advantage_new = self.calcAdvantage(
@@ -277,7 +293,7 @@ class PPO:
             values=self.values,
             next_value=next_value,
             dones=self.dones,
-            gae_parameter=self.advantage  # using your 'advantage' hyperparameter as lambda
+            gae_parameter=self.advantage  # advantage = lambda
         )
 
         # discountedReturns_new = self.calcDiscountedReturns(self) 
@@ -285,23 +301,62 @@ class PPO:
             rewards=self.rewards,
             dones=self.dones
         )
-        
-        # May need to normalize advantages
-        # TODO: Convert data to tensor
 
-        # TODO: Update for multiple epochs
-        # TODO: Create Minibatches (helper function)
-        
-        # self.updateActor(self, imu, servo, lidar, actions, log_prob_old) 
-        self.updateActor(self, self.states['imu'], self.states['servo'], self.states['lidar'], self.actions, self.log_probs) 
-        
-        # self.updateCritic(self, states, returns) 
-        self.updateCritic(self, self.states, self.returns) 
+        # Convert data to tensor
+        imu_tensor = torch.FloatTensor(np.array(self.states['imu']))
+        servo_tensor = torch.FloatTensor(np.array(self.states['servo']))
+        lidar_tensor = torch.FloatTensor(np.array(self.states['lidar']))
+        actions_tensor = torch.FloatTensor(np.array(self.actions))
+        old_log_probs_tensor = torch.FloatTensor(np.array(self.log_probs)).squeeze()
+
+        # Normalize advantages
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+
+        # Get number of samples
+        num_samples = len(self.rewards)
+
+        # Update for multiple epochs
+        for epoch in range(self.epochs):
+            # Create random minibatches
+            indices = torch.randperm(num_samples)
+            
+            for start in range(0, num_samples, self.batch_size):
+                end = min(start + self.batch_size, num_samples)
+                batch_indices = indices[start:end]
+                
+                # Create minibatch
+                batch_imu = imu_tensor[batch_indices]
+                batch_servo = servo_tensor[batch_indices]
+                batch_lidar = lidar_tensor[batch_indices]
+                batch_actions = actions_tensor[batch_indices]
+                batch_old_log_probs = old_log_probs_tensor[batch_indices]
+                batch_advantages = advantages[batch_indices]
+                batch_returns = returns[batch_indices]
+                
+                # Update actor
+                # self.updateActor(self, imu, servo, lidar, actions, log_prob_old) 
+                self.updateActor(
+                    batch_imu,
+                    batch_servo,
+                    batch_lidar,
+                    batch_actions,
+                    batch_old_log_probs,
+                    batch_advantages
+                )
+                
+                # Update critic
+                # self.updateCritic(self, states, returns) 
+                self.updateCritic(
+                    batch_imu,
+                    batch_servo,
+                    batch_lidar,
+                    batch_returns
+                )
 
         self.clear_memory()
     
 
-    def updateActor(self, imu, servo, lidar, actions, log_prob_old):
+    def updateActor(self, imu, servo, lidar, actions, log_prob_old, advantages):
         """ Update policy using clipped PPO objective"""
         # with torch.GradientTape() as tape:
         log_prob_new = self.compute_log_prob(imu, servo, lidar, actions)
@@ -310,9 +365,9 @@ class PPO:
         ratio = torch.exp(log_prob_new - log_prob_old)
     
         # Calculate clipped vs unclipped loss
-        unclippedL = ratio * self.advantage 
+        unclippedL = ratio * advantages
         ratio_clipped  = torch.clamp(ratio, 1 - self.clipping, 1 + self.clipping)
-        clippedL = ratio_clipped  * self.advantage
+        clippedL = ratio_clipped  * advantages
 
         # actor loss = pessimistic estimate, take minimum
         actor_loss = (-torch.min(unclippedL, clippedL)).mean()
@@ -323,7 +378,7 @@ class PPO:
         self.actor_optimizer.step()
     
 
-    def updateCritic(self, states, returns):
+    def updateCritic(self, imu, servo, lidar, returns):
         """
         From jennyf12-patch-1
     
@@ -336,10 +391,6 @@ class PPO:
         Returns:
             avg_loss: Average loss across epochs
         """
-        imu = torch.FloatTensor(states['imu'])
-        servo = torch.FloatTensor(states['servo'])
-        lidar = torch.FloatTensor(states['lidar'])
-        
         # Ensure returns has the correct shape
         if returns.dim() == 1:
             returns = returns.unsqueeze(-1)
@@ -351,7 +402,7 @@ class PPO:
         # Train for multiple epochs
         for _ in range(self.epochs):
             # Forward Pass: predict state values
-            predicted_values = self.critic(states)
+            predicted_values = self.critic(imu, servo, lidar)
 
             # Compute MSE loss: mean squared error between prediction and target
             loss = nn.MSELoss()(predicted_values, returns)
@@ -374,7 +425,6 @@ class PPO:
 
         # Calculate average loss across all epochs
         avg_loss = total_loss / self.epochs
-
         return avg_loss
     
 
@@ -391,5 +441,3 @@ class PPO:
         self.values = []
         self.dones = []
         print("Buffers cleared")
-
-    # Should we add a function to log all the values?
