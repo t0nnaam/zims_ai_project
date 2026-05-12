@@ -28,15 +28,12 @@ obs, _= env.reset()
 # agent = PPO(n_actions=env.action_space.shape[0], input_dims=env.observation_space.shape[0])
 agent = PPO()
 
-# NEW: Load existing model if resuming or just running
+# Load existing model if resuming or just running
 if RESUME_TRAINING:
     agent.load_model(MODEL_PATH)
     print("Model loaded - resuming training")
 elif not train:
-    agent.load_model(MODEL_PATH)
-
-if not train:
-    agent.load_models()   # loads saved weights if they exist, otherwise starts fresh
+    agent.load_model(MODEL_PATH) # loads saved weights if they exist
 
 # ── Training loop ─────────────────────────────────────────────────────────────
 episode        = 0
