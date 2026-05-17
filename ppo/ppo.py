@@ -30,44 +30,6 @@ class PPO:
         self.values = []
         self.log_probs = [] # store old log probs for PPO
         self.dones = []
-        # self.rewards_tensor = torch.tensor(self.rewards, dtype = torch.float32)
-        # self.critic_values_tensor = self.critic.getValues(self.states['imu'], self.states['servo'], self.states['lidar']).detach()
-
-
-    def _split_observation(self, obs):
-        """
-        Helper function to split observation into sensor components
-        
-        Args:
-            obs: Full observation array of shape [21]
-        
-        Returns:
-            tuple: (imu, servo, lidar) as numpy arrays
-        """
-        imu = obs[:6]
-        servo = obs[6:18]
-        # lidar = obs[18:]
-        lidar = obs[18:21]
-        return imu, servo, lidar
-
-
-    def _obs_to_tensors(self, obs):
-        """
-        Helper function to convert observation to tensor components
-        
-        Args:
-            obs: Full observation array of shape [21]
-        
-        Returns:
-            tuple: (imu_tensor, servo_tensor, lidar_tensor) with batch dimension
-        """
-        imu, servo, lidar = self._split_observation(obs)
-        
-        imu_tensor = torch.FloatTensor(imu).unsqueeze(0)
-        servo_tensor = torch.FloatTensor(servo).unsqueeze(0)
-        lidar_tensor = torch.FloatTensor(lidar).unsqueeze(0)
-        
-        return imu_tensor, servo_tensor, lidar_tensor
     
 
     def choose_action(self, state):
@@ -77,8 +39,7 @@ class PPO:
         #split each sensor into separate paramaters for get_action and get_value
         imu = state[:6]
         servo = state[6:18]
-        # lidar = state[18:]
-        lidar = state[18:21]
+        lidar = state[18:]
 
         # make each one into a tensor
         imu_tensor = torch.FloatTensor(imu).unsqueeze(0)
@@ -87,9 +48,7 @@ class PPO:
         
         # Get action from actor
         with torch.no_grad():
-            # use Actor to sample action (actor's distribution)
             action, log_prob = self.actor.get_action(imu_tensor, servo_tensor, lidar_tensor)
-            # Get value estimate from critic
             value = self.critic.get_value(imu_tensor, servo_tensor, lidar_tensor)
         
         # Convert to numpy for environment
@@ -120,9 +79,6 @@ class PPO:
 
 
     def save_model(self, filepath): 
-        """
-        Save actor and critic + optimizer states
-        """
         checkpoint = {
             'actor_state_dict': self.actor.state_dict(),
             'critic_state_dict': self.critic.state_dict(),
@@ -139,8 +95,6 @@ class PPO:
         }
     
         torch.save(checkpoint, filepath)
-        #actor.save_checkpoint
-        #critic.save_checkpoint
     
 
     def load_model(self, filepath):
@@ -156,11 +110,6 @@ class PPO:
         # Load optimizer states
         self.actor_optimizer.load_state_dict(checkpoint['actor_optimizer_state_dict'])
         self.critic_optimizer.load_state_dict(checkpoint['critic_optimizer_state_dict'])
-        
-        # do we need to load hyperparameters?
-
-        #actor.load_checkpoint
-        #critic.load_checkpoint
 
 
     def save_memory(self, obs, action, log_prob, value, reward, done):
@@ -170,8 +119,7 @@ class PPO:
         # Split observation into components
         imu = obs[:6]
         servo = obs[6:18]
-        # lidar = obs[18:]
-        lidar = obs[18:21]
+        lidar = obs[18:]
         
         # Store each component
         self.states['imu'].append(imu)
@@ -192,22 +140,6 @@ class PPO:
 
 
     def rollout(self, env, num_steps):
-        """
-        from zihanwang126-branch
-        Run policy in environment and collect num_steps of data
-
-        Args:
-            env: Environment to interact with
-            num_steps: Number of steps to collect
-
-        Returns:
-            Dictionary containing collected trajectory data
-        """
-        print(f"\nStarting trajectory collection for {num_steps} steps")
-
-        print("OBS SHAPE:", len(state))
-        print("LIDAR RAW:", len(state[18:]))
-
         # Reset environment to get initial state
         state = env.reset()
 
@@ -216,22 +148,11 @@ class PPO:
         episode_reward = 0
         episode_count = 0
 
-        # Note: A lot of the stuff here was moved to the functions we were told to write in office hours
         # Collect num_steps of data
         for step in range(num_steps):
-            # Use choose_action to get action, log_prob, and value 
             action, log_prob, value = self.choose_action(state)
-    
-            # Convert state to tensor format
-            # state_tensor = torch.FloatTensor(state).unsqueeze(0)
-
-            # Execute action in environment
             next_state, reward, done, info = env.step(action)
-
-            # Store transition data using save_memory
             self.save_memory(state, action, log_prob, value, reward, done)
-
-            # Update state and statistics
             state = next_state
             episode_reward += reward
 
@@ -251,29 +172,7 @@ class PPO:
 
         # return collected data
         return self.get_data()
-
-
-    def get_data(self):
-        """
-        helper function from zihanwang126-branch
-        Get collected data and convert to numpy arrays
-
-        Returns:
-            Dictionary containing all trajectory data
-        """
-        data = {
-            'states': {
-                'imu': np.array(self.states['imu']),
-                'servo': np.array(self.states['servo']),
-                'lidar': np.array(self.states['lidar'])
-            },
-            'actions': np.array(self.actions),
-            'rewards': np.array(self.rewards),
-            'log_probs': np.array(self.log_probs),
-            'values': np.array(self.values).flatten(),
-            'dones': np.array(self.dones)
-        }
-        return data
+    
 
 
     def calculateTDResidual(self, rewards, values, next_value, dones): 
@@ -288,15 +187,10 @@ class PPO:
         elif next_value.dim() > 1:
             next_value = next_value.squeeze()
 
-        # Build next_values
-        # next_values = torch.cat([critic_values[1:], next_value.unsqueeze(0)]) 
         next_values = torch.cat([values[1:], next_value])
 
-        # Mask for non-terminal states (1 = not done, 0 = done)
         mask_tensor = 1.0 - dones
 
-        # uses vectorization to calculate the TD residual 
-        # current reward + (discount factor * next critic value) - current critic value 
         td_residual = rewards + (self.discount * mask_tensor * next_values) - values
         
         return td_residual 
@@ -304,7 +198,6 @@ class PPO:
 
     def calcAdvantage(self, rewards, values, next_value, dones, gae_parameter = 0.95):
         """ Calculate Advantage Estimation """
-        # Convert to tensors
         rewards = torch.FloatTensor(rewards)
         values = torch.FloatTensor(values)
         dones = torch.FloatTensor(dones)
@@ -328,12 +221,9 @@ class PPO:
             else:
                 next_val = values[t + 1]
                 next_done = dones[t] # is it t or t+1
-            
-            # return self.calculateTDResidual(next_value, rewards_tensor, critic_values_tensor, dones_tensor) + (self.discount * gae_parameter * next_advantage)
-            # TD error = current reward + (discount * next value * not_done) - current value
+
             tdError = rewards[t] + self.discount * next_val * (1 - next_done) - values[t]
             
-            # GAE (advantage) = TD error + (discount * gae_lambda * not_done * previous advantage)
             gae = tdError + self.discount * gae_parameter * (1 - next_done) * gae
             advantages.insert(0, gae)
 
@@ -342,8 +232,6 @@ class PPO:
 
     def calcDiscountedReturns(self, rewards, dones):
         """ Calculate Discounted Returns """
-	    # (discounted factor ^ range from 0 to the number of rows of the rewards tensor) * the rewards tensor
-        # Return = current reward + (discount * next return)
         returns = []
         discounted_return = 0
         
@@ -352,12 +240,10 @@ class PPO:
             # Reset return to 0 if episode ended
             if done:
                 discounted_return = 0
-            
-            # Return = current reward + (discount * next return)
+        
             discounted_return = reward + self.discount * discounted_return
             returns.insert(0, discounted_return)
         
-        # return self.discount ** torch.arange(self.rewards_tensor.size(0)) * self.rewards_tensor
         return torch.FloatTensor(returns)
 
 
@@ -366,8 +252,6 @@ class PPO:
         update = learn function
         Calculate advantages, create minibatches, call actor and critic updates 
         """
-        # get next value
-        # if last state was terminal return 0
         if self.dones[-1]:
             next_value = 0.0
         # otherwise estimate from critic    
@@ -427,8 +311,6 @@ class PPO:
     
 
     def updateActor(self, imu, servo, lidar, actions, log_prob_old, advantages):
-        """ Update policy using clipped PPO objective"""
-        # with torch.GradientTape() as tape:
         log_prob_new = self.compute_log_prob(imu, servo, lidar, actions)
         
         # Calculate probability ratio = pi_theta(a_t | s_t) / pi_theta_k(a_t | s_t)
@@ -461,18 +343,6 @@ class PPO:
     
 
     def updateCritic(self, imu, servo, lidar, returns, old_values):
-        """
-        From jennyf12-patch-1
-    
-        Train the value network with actual returns and update the critic
-
-        Args:
-              states: State tensor of shape (batch_size, state_dim)
-              returns: Target returns of shape (batch_size,)
-
-        Returns:
-            avg_loss: Average loss across epochs
-        """
         # Ensure returns has the correct shape
         if returns.dim() == 1:
             returns = returns.unsqueeze(-1)
@@ -480,41 +350,26 @@ class PPO:
         # Forward Pass: predict state values
         predicted_values = self.critic(imu, servo, lidar)
 
-        # Clip value predictions (similar to policy clipping)
         old_values = old_values.unsqueeze(-1) if old_values.dim() == 1 else old_values
         value_pred_clipped = old_values + torch.clamp(predicted_values - old_values, -self.clipping, self.clipping)
 
-        # Compute MSE loss: mean squared error between prediction and target
-        # Compute losses for clipped and unclipped
         value_loss_unclipped = (predicted_values - returns).pow(2)
         value_loss_clipped = (value_pred_clipped - returns).pow(2)
     
-        # Take maximum (pessimistic)
         loss = 0.5 * torch.max(value_loss_unclipped, value_loss_clipped).mean()
-        # loss = nn.MSELoss()(predicted_values, returns)
 
-        # Back propagation
-        # Clear previous gradients
         self.critic_optimizer.zero_grad()
 
-        # Compute gradients of the loss
         loss.backward()
 
-        # Gradient clipping, helps prevent exploding gradients
         nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
 
-        # Update network weights
         self.critic_optimizer.step()
 
         return loss.item()
     
 
     def clear_memory(self):
-        """
-        from zihanwang126-branch
-        Clear trajectory buffers
-        Resets all storage lists to empty
-        """
         self.states = {'imu': [], 'servo': [], 'lidar': []}
         self.actions = []
         self.rewards = []

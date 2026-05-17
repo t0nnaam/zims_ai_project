@@ -9,7 +9,6 @@ import numpy as np
 #in this case, the output is the 
 #input for our 12 servo motors (3 on each leg, to move the joints)
 ACTION_SPACE_SIZE = 12
-LIDAR_SIZE = 360
 
 #Actor state input consists of IMU (6), Servo (12) if Lidar is added (360)
 
@@ -35,13 +34,11 @@ class Actor(nn.Module):
         self.servo_fc2 = nn.Linear(64, 32)
         
         #for the lidar 
-        # self.lidar_fc1 = nn.Linear(LIDAR_SIZE, 128)
-        # self.lidar_fc2 = nn.Linear(128, 64)
-        self.lidar_fc1 = nn.Linear(3, 64)
-        self.lidar_fc2 = nn.Linear(64, 32)
+        self.lidar_fc1 = nn.Linear(359, 128)
+        self.lidar_fc2 = nn.Linear(128, 64)
         
         #taking all the inputs from all the neurons and combining them to 64
-        self.combined_fc = nn.Linear(96, 64)
+        self.combined_fc = nn.Linear(128, 64)
         
         #takes 64 inputs (from the combined input) and makes it into a vector that has 12 outputs
         #one for each of the servo motors
@@ -111,12 +108,10 @@ class Critic(nn.Module):
         self.servo_fc1 = nn.Linear(12, 64)
         self.servo_fc2 = nn.Linear(64, 32)
 
-        # self.lidar_fc1 = nn.Linear(LIDAR_SIZE, 128)
-        # self.lidar_fc2 = nn.Linear(128, 64)
-        self.lidar_fc1 = nn.Linear(3, 64)
-        self.lidar_fc2 = nn.Linear(64, 32)
+        self.lidar_fc1 = nn.Linear(359, 128)
+        self.lidar_fc2 = nn.Linear(128, 64)
         
-        self.combined_fc = nn.Linear(96, 64)
+        self.combined_fc = nn.Linear(128, 64)
         
         #makes a layer to calculate how good the action is vs what we expected
         self.value_layer = nn.Linear(64, 1)

@@ -471,3 +471,38 @@ ep=7  total=-12447.09  per_step=-21.799  steps=571  end=collision  mean100=-1344
 ep=8  total=-7567.23  per_step=-24.023  steps=315  end=collision  mean100=-12708.96  mean_len=590  coll%=87.5
 ep=9  total=-17395.03  per_step=-12.744  steps=1365  end=goal  mean100=-13229.63  mean_len=676  coll%=77.8
 ep=10  total=-16854.59  per_step=-23.025  steps=732  end=collision  mean100=-13592.13  mean_len=682  coll%=80.0
+ep=1  total=-13130.13  per_step=-13.039  steps=1007  end=goal  mean100=-13130.13  mean_len=1007  coll%=0.0  a_loss=-0.1785  c_loss=15418.0945
+ep=2  total=-4714.33  per_step=-25.076  steps=188  end=collision  mean100=-8922.23  mean_len=598  coll%=50.0  a_loss=-0.2236  c_loss=114700.0684
+ep=3  total=-13514.61  per_step=-14.393  steps=939  end=goal  mean100=-10453.02  mean_len=711  coll%=33.3  a_loss=-0.1806  c_loss=8697.3804
+ep=4  total=-13705.01  per_step=-14.658  steps=935  end=goal  mean100=-11266.02  mean_len=767  coll%=25.0  a_loss=-0.2021  c_loss=8989.1602
+ep=5  total=-8223.12  per_step=-22.906  steps=359  end=collision  mean100=-10657.44  mean_len=686  coll%=40.0  a_loss=-0.2155  c_loss=24980.6796
+ep=6  total=-6243.54  per_step=-23.297  steps=268  end=collision  mean100=-9921.79  mean_len=616  coll%=50.0  a_loss=-0.2174  c_loss=38962.1049
+ep=7  total=-13243.01  per_step=-13.809  steps=959  end=goal  mean100=-10396.25  mean_len=665  coll%=42.9  a_loss=-0.1969  c_loss=14013.3682
+ep=8  total=-5575.66  per_step=-25.694  steps=217  end=collision  mean100=-9793.68  mean_len=609  coll%=50.0  a_loss=-0.2218  c_loss=28451.3856
+ep=9  total=-10925.04  per_step=-22.387  steps=488  end=collision  mean100=-9919.38  mean_len=596  coll%=55.6  a_loss=-0.2071  c_loss=31029.9684
+ep=10  total=-4116.43  per_step=-30.492  steps=135  end=collision  mean100=-9339.09  mean_len=550  coll%=60.0  a_loss=-0.2498  c_loss=10772.8922
+ep=11  total=-4226.81  per_step=-25.463  steps=166  end=collision  mean100=-8874.34  mean_len=515  coll%=63.6  a_loss=-0.2296  c_loss=7017.2286
+ep=12  total=-4165.79  per_step=-32.802  steps=127  end=collision  mean100=-8481.96  mean_len=482  coll%=66.7  a_loss=-0.2214  c_loss=12088.3023
+ep=13  total=-9596.14  per_step=-20.681  steps=464  end=collision  mean100=-8567.66  mean_len=481  coll%=69.2  a_loss=-0.2232  c_loss=969.1825
+ep=14  total=-9308.55  per_step=-21.800  steps=427  end=collision  mean100=-8620.58  mean_len=477  coll%=71.4  a_loss=-0.2278  c_loss=2665.7420
+ep=15  total=-14256.68  per_step=-19.856  steps=718  end=collision  mean100=-8996.32  mean_len=493  coll%=73.3  a_loss=-0.1904  c_loss=3231.1607
+ep=16  total=-5671.32  per_step=-26.135  steps=217  end=collision  mean100=-8788.51  mean_len=476  coll%=75.0  a_loss=-0.2138  c_loss=5408.7647
+ep=17  total=-6159.94  per_step=-29.473  steps=209  end=collision  mean100=-8633.89  mean_len=460  coll%=76.5  a_loss=-0.1934  c_loss=20491.1619
+ep=18  total=-14094.79  per_step=-13.027  steps=1082  end=goal  mean100=-8937.27  mean_len=495  coll%=72.2  a_loss=-0.1944  c_loss=30392.4881
+ep=19  total=-10570.13  per_step=-20.057  steps=527  end=collision  mean100=-9023.21  mean_len=496  coll%=73.7  a_loss=-0.2247  c_loss=12317.3117
+ep=20  total=-3670.35  per_step=-37.839  steps=97  end=collision  mean100=-8755.57  mean_len=476  coll%=75.0  a_loss=-0.2288  c_loss=13893.8937
+ep=21  total=-4620.56  per_step=-30.600  steps=151  end=collision  mean100=-8558.66  mean_len=461  coll%=76.2  a_loss=-0.2444  c_loss=1383.1331
+ep=22  total=-3382.72  per_step=-34.518  steps=98  end=collision  mean100=-8323.39  mean_len=444  coll%=77.3  a_loss=-0.2307  c_loss=5445.2322
+ep=23  total=-10715.10  per_step=-24.079  steps=445  end=collision  mean100=-8427.38  mean_len=444  coll%=78.3  a_loss=-0.2103  c_loss=29426.9684
+ep=24  total=-9669.46  per_step=-21.488  steps=450  end=collision  mean100=-8479.13  mean_len=445  coll%=79.2  a_loss=-0.1808  c_loss=12881.8580
+ep=25  total=-4088.15  per_step=-24.334  steps=168  end=collision  mean100=-8303.50  mean_len=434  coll%=80.0  a_loss=-0.2117  c_loss=19213.7655
+ep=26  total=-6302.14  per_step=-18.006  steps=350  end=collision  mean100=-8226.52  mean_len=430  coll%=80.8  a_loss=-0.2040  c_loss=12845.6177
+ep=27  total=-3838.46  per_step=-29.756  steps=129  end=collision  mean100=-8064.00  mean_len=419  coll%=81.5  a_loss=-0.1283  c_loss=1665.3419
+ep=28  total=-25597.16  per_step=-25.674  steps=997  end=collision  mean100=-8690.18  mean_len=440  coll%=82.1  a_loss=-0.1891  c_loss=523692.0880
+ep=29  total=-6019.40  per_step=-24.272  steps=248  end=collision  mean100=-8598.09  mean_len=433  coll%=82.8  a_loss=-0.2252  c_loss=1994.1863
+ep=30  total=-10970.92  per_step=-21.344  steps=514  end=collision  mean100=-8677.18  mean_len=436  coll%=83.3  a_loss=-0.2080  c_loss=6273.2280
+ep=1  total=-9373.04  per_step=-18.271  steps=513  end=collision  mean100=-9373.04  mean_len=513  coll%=100.0
+ep=2  total=-7899.95  per_step=-18.676  steps=423  end=collision  mean100=-8636.49  mean_len=468  coll%=100.0
+ep=3  total=-4768.99  per_step=-28.557  steps=167  end=collision  mean100=-7347.32  mean_len=368  coll%=100.0
+ep=4  total=-14935.90  per_step=-11.920  steps=1253  end=goal  mean100=-9244.47  mean_len=589  coll%=75.0
+ep=5  total=-6255.57  per_step=-26.964  steps=232  end=collision  mean100=-8646.69  mean_len=518  coll%=80.0
