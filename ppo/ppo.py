@@ -8,7 +8,7 @@ import numpy as np
 # If you can, download pybullet and gymnasium so you can run the test environment
 
 class PPO:
-    def __init__(self, discount=0.99, clipping=0.2, advantage=0.95, epoch=5, batch_size=128):
+    def __init__(self, discount=0.99, clipping=0.2, advantage=0.95, epoch=10, batch_size=64):
         # the values here are placeholders rn - we can test and change later
         # Networks
         self.actor = Actor()
@@ -35,58 +35,6 @@ class PPO:
         self.dones = []
         # self.rewards_tensor = torch.tensor(self.rewards, dtype = torch.float32)
         # self.critic_values_tensor = self.critic.getValues(self.states['imu'], self.states['servo'], self.states['lidar']).detach()
-
-        # Running statistics for observation normalization
-        self.obs_mean = np.zeros(377)
-        self.obs_var = np.ones(377)
-        self.obs_count = 1e-4
-
-        # Reward statistics - for normalization
-        self.reward_mean = 0
-        self.reward_var = 1
-        self.reward_count = 1e-4
-
-
-    def normalize_rewards(self):
-        """Normalize stored rewards"""
-        rewards_array = np.array(self.rewards)
-        
-        # Update statistics
-        batch_mean = np.mean(rewards_array)
-        batch_var = np.var(rewards_array)
-        batch_count = len(rewards_array)
-        
-        delta = batch_mean - self.reward_mean
-        total_count = self.reward_count + batch_count
-        
-        self.reward_mean = self.reward_mean + delta * batch_count / total_count
-        self.reward_var = (self.reward_var * self.reward_count + batch_var * batch_count) / total_count
-        self.reward_count = total_count
-        
-        # Normalize rewards
-        self.rewards = ((rewards_array - self.reward_mean) / np.sqrt(self.reward_var + 1e-8)).tolist()
-
-
-    def normalize_obs(self, obs):
-        """Normalize observation using running statistics"""
-        return (obs - self.obs_mean) / np.sqrt(self.obs_var + 1e-8)
-    
-
-    def update_obs_stats(self, obs):
-        """Update running mean and variance"""
-        batch_mean = np.mean(obs, axis=0)
-        batch_var = np.var(obs, axis=0)
-        batch_count = obs.shape[0]
-        
-        delta = batch_mean - self.obs_mean
-        total_count = self.obs_count + batch_count
-        
-        self.obs_mean = self.obs_mean + delta * batch_count / total_count
-        m_a = self.obs_var * self.obs_count
-        m_b = batch_var * batch_count
-        M2 = m_a + m_b + delta**2 * self.obs_count * batch_count / total_count
-        self.obs_var = M2 / total_count
-        self.obs_count = total_count
 
 
     def _split_observation(self, obs):
@@ -128,13 +76,10 @@ class PPO:
         """
         Choose action given observation
         """
-        # Normalize observation
-        state_norm = self.normalize_obs(state)
-
         #split each sensor into separate paramaters for get_action and get_value
-        imu = state_norm[:6]
-        servo = state_norm[6:18]
-        lidar = state_norm[18:21]
+        imu = state[:6]
+        servo = state[6:18]
+        lidar = state[18:21]
 
         # make each one into a tensor
         imu_tensor = torch.FloatTensor(imu).unsqueeze(0)
@@ -379,7 +324,7 @@ class PPO:
                 next_done = 0  # Assume not done for bootstrap
             else:
                 next_val = values[t + 1]
-                next_done = dones[t]
+                next_done = dones[t + 1]
             
             # return self.calculateTDResidual(next_value, rewards_tensor, critic_values_tensor, dones_tensor) + (self.discount * gae_parameter * next_advantage)
             # TD error = current reward + (discount * next value * not_done) - current value
@@ -430,13 +375,10 @@ class PPO:
             with torch.no_grad():
                 next_value = self.critic.get_value(imu_t, servo_t, lidar_t).item()
 
-        self.normalize_rewards()
-
         advantages = self.calcAdvantage(rewards=self.rewards, values=self.values, next_value=next_value, dones=self.dones, gae_parameter=self.advantage)
-
         returns = self.calcDiscountedReturns(rewards=self.rewards, dones=self.dones)
 
-         # Store old values BEFORE converting to tensor
+         # Store old values before converting to tensor
         old_values_np = np.array(self.values)       
 
         # Convert data to tensor

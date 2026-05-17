@@ -858,7 +858,14 @@ class SpiderEnv(gym.Env):
 
         pos, _ = p.getBasePositionAndOrientation(self.robot_id)
         self.position = list(pos)
-        self._prev_x  = pos[0]
+        # self._prev_x  = pos[0]
+
+        # added to measure distance/velocity
+        self.start_x = float(pos[0])
+        self.prev_x = float(pos[0])
+        self.total_distance = 0.0
+        self.avg_velocity = 0.0
+        self.max_velocity = 0.0
 
         return self._get_observation(), {}
 
@@ -921,6 +928,16 @@ class SpiderEnv(gym.Env):
         new_pos, _ = p.getBasePositionAndOrientation(self.robot_id)
         obs = self._get_observation()
 
+        # Distance / velocity tracking 
+        dx_step = float(new_pos[0] - self.prev_x)     
+        self.total_distance += max(0.0, dx_step) # only count forward movement
+        dt = PHYSICS_SUBSTEPS / GAIT_SIM_HZ # simulation timeste
+        current_velocity = dx_step / dt
+        self.avg_velocity = (self.total_distance / max(self.step_count * dt, 1e-6))
+        self.max_velocity = max(self.max_velocity, current_velocity)
+
+        self.prev_x = float(new_pos[0])
+
         # 7. Compute reward
         reward, components = self._compute_reward(new_pos)
 
@@ -982,6 +999,15 @@ class SpiderEnv(gym.Env):
         # are intentionally larger than any per-step reward and must remain
         # distinguishable from ordinary good/bad steps.
         reward = float(np.clip(reward, -200.0, 50.0)) + terminal_bonus
+
+        if terminated or truncated:
+            print("\n===== EPISODE SUMMARY =====")
+            print(f"End reason:        {end_reason}")
+            print(f"Final X position:  {new_pos[0]:.3f} m")
+            print(f"Distance traveled: {self.total_distance:.3f} m")
+            print(f"Average velocity:  {self.avg_velocity:.3f} m/s")
+            print(f"Max velocity:      {self.max_velocity:.3f} m/s")
+            print("===========================\n")
 
         return obs, float(reward), terminated, truncated, {
             "reward_components": components,

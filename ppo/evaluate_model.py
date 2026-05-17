@@ -28,6 +28,7 @@ def evaluate_model(model_path, num_episodes=100):
                 outcomes[outcome] = outcomes.get(outcome, 0) + 1
                 break
         
+        print(f"reward: {episode_reward} | length: {episode_length}")
         rewards.append(episode_reward)
         lengths.append(episode_length)
     
