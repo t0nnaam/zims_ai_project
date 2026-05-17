@@ -17,7 +17,7 @@ SAVE_INTERVAL = 10          # save model weights every N episodes
 LOG_FILE      = "reward_log.txt"
 MODEL_PATH    = "./models/spider_ppo.pth"
 
-RESUME_TRAINING = False 
+RESUME_TRAINING = True 
 train = True # set to True to train, False to just run with saved weights (if they exist)
 
 
