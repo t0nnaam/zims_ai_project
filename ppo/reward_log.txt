@@ -467,3 +467,7 @@ ep=3  total=-6672.82  per_step=-23.332  steps=286  end=collision  mean100=-11936
 ep=4  total=-6317.46  per_step=-24.774  steps=255  end=collision  mean100=-10531.88  mean_len=541  coll%=75.0
 ep=5  total=-35399.07  per_step=-23.122  steps=1531  end=collision  mean100=-15505.32  mean_len=739  coll%=80.0
 ep=6  total=-4130.75  per_step=-28.886  steps=143  end=collision  mean100=-13609.56  mean_len=640  coll%=83.3
+ep=7  total=-12447.09  per_step=-21.799  steps=571  end=collision  mean100=-13443.49  mean_len=630  coll%=85.7
+ep=8  total=-7567.23  per_step=-24.023  steps=315  end=collision  mean100=-12708.96  mean_len=590  coll%=87.5
+ep=9  total=-17395.03  per_step=-12.744  steps=1365  end=goal  mean100=-13229.63  mean_len=676  coll%=77.8
+ep=10  total=-16854.59  per_step=-23.025  steps=732  end=collision  mean100=-13592.13  mean_len=682  coll%=80.0
