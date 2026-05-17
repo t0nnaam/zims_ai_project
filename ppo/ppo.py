@@ -8,7 +8,7 @@ import numpy as np
 # If you can, download pybullet and gymnasium so you can run the test environment
 
 class PPO:
-    def __init__(self, discount=0.99, clipping=0.2, advantage=0.9, epoch=10, batch_size=64):
+    def __init__(self, discount=0.99, clipping=0.2, advantage=0.95, epoch=5, batch_size=128):
         # the values here are placeholders rn - we can test and change later
         # Networks
         self.actor = Actor()
@@ -35,6 +35,58 @@ class PPO:
         self.dones = []
         # self.rewards_tensor = torch.tensor(self.rewards, dtype = torch.float32)
         # self.critic_values_tensor = self.critic.getValues(self.states['imu'], self.states['servo'], self.states['lidar']).detach()
+
+        # Running statistics for observation normalization
+        self.obs_mean = np.zeros(377)
+        self.obs_var = np.ones(377)
+        self.obs_count = 1e-4
+
+        # Reward statistics - for normalization
+        self.reward_mean = 0
+        self.reward_var = 1
+        self.reward_count = 1e-4
+
+
+    def normalize_rewards(self):
+        """Normalize stored rewards"""
+        rewards_array = np.array(self.rewards)
+        
+        # Update statistics
+        batch_mean = np.mean(rewards_array)
+        batch_var = np.var(rewards_array)
+        batch_count = len(rewards_array)
+        
+        delta = batch_mean - self.reward_mean
+        total_count = self.reward_count + batch_count
+        
+        self.reward_mean = self.reward_mean + delta * batch_count / total_count
+        self.reward_var = (self.reward_var * self.reward_count + batch_var * batch_count) / total_count
+        self.reward_count = total_count
+        
+        # Normalize rewards
+        self.rewards = ((rewards_array - self.reward_mean) / np.sqrt(self.reward_var + 1e-8)).tolist()
+
+
+    def normalize_obs(self, obs):
+        """Normalize observation using running statistics"""
+        return (obs - self.obs_mean) / np.sqrt(self.obs_var + 1e-8)
+    
+
+    def update_obs_stats(self, obs):
+        """Update running mean and variance"""
+        batch_mean = np.mean(obs, axis=0)
+        batch_var = np.var(obs, axis=0)
+        batch_count = obs.shape[0]
+        
+        delta = batch_mean - self.obs_mean
+        total_count = self.obs_count + batch_count
+        
+        self.obs_mean = self.obs_mean + delta * batch_count / total_count
+        m_a = self.obs_var * self.obs_count
+        m_b = batch_var * batch_count
+        M2 = m_a + m_b + delta**2 * self.obs_count * batch_count / total_count
+        self.obs_var = M2 / total_count
+        self.obs_count = total_count
 
 
     def _split_observation(self, obs):
@@ -76,10 +128,13 @@ class PPO:
         """
         Choose action given observation
         """
+        # Normalize observation
+        state_norm = self.normalize_obs(state)
+
         #split each sensor into separate paramaters for get_action and get_value
-        imu = state[:6]
-        servo = state[6:18]
-        lidar = state[18:21]
+        imu = state_norm[:6]
+        servo = state_norm[6:18]
+        lidar = state_norm[18:21]
 
         # make each one into a tensor
         imu_tensor = torch.FloatTensor(imu).unsqueeze(0)
@@ -375,15 +430,14 @@ class PPO:
             with torch.no_grad():
                 next_value = self.critic.get_value(imu_t, servo_t, lidar_t).item()
 
-        advantages = self.calcAdvantage(
-            rewards=self.rewards,
-            values=self.values,
-            next_value=next_value,
-            dones=self.dones,
-            gae_parameter=self.advantage  # advantage = lambda
-        )
+        self.normalize_rewards()
+
+        advantages = self.calcAdvantage(rewards=self.rewards, values=self.values, next_value=next_value, dones=self.dones, gae_parameter=self.advantage)
 
         returns = self.calcDiscountedReturns(rewards=self.rewards, dones=self.dones)
+
+         # Store old values BEFORE converting to tensor
+        old_values_np = np.array(self.values)       
 
         # Convert data to tensor
         imu_tensor = torch.FloatTensor(np.array(self.states['imu']))
@@ -391,6 +445,7 @@ class PPO:
         lidar_tensor = torch.FloatTensor(np.array(self.states['lidar']))
         actions_tensor = torch.FloatTensor(np.array(self.actions))
         old_log_probs_tensor = torch.FloatTensor(np.array(self.log_probs)).squeeze()
+        old_values_tensor = torch.FloatTensor(old_values_np)
 
         # Normalize advantages
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
@@ -415,12 +470,13 @@ class PPO:
                 batch_old_log_probs = old_log_probs_tensor[batch_indices]
                 batch_advantages = advantages[batch_indices]
                 batch_returns = returns[batch_indices]
+                batch_old_values = old_values_tensor[batch_indices]
                 
                 # Update actor
                 self.updateActor(batch_imu, batch_servo, batch_lidar, batch_actions, batch_old_log_probs, batch_advantages)
                 
                 # Update critic
-                self.updateCritic(batch_imu, batch_servo, batch_lidar, batch_returns)
+                self.updateCritic(batch_imu, batch_servo, batch_lidar, batch_returns, batch_old_values)  
 
         self.clear_memory()
     
@@ -438,16 +494,28 @@ class PPO:
         ratio_clipped  = torch.clamp(ratio, 1 - self.clipping, 1 + self.clipping)
         clippedL = ratio_clipped  * advantages
 
-        # actor loss = pessimistic estimate, take minimum
-        actor_loss = (-torch.min(unclippedL, clippedL)).mean()
+        # Entropy bonus for exploration
+        mean, log_std = self.actor(imu, servo, lidar)
+        std = log_std.exp()
+        dist = torch.distributions.Normal(mean, std)
+        entropy = dist.entropy().sum(dim=-1).mean()
+
+        # actor loss = pessimistic estimate, take minimum = policy loss - entropy bonus
+        actor_loss = -torch.min(unclippedL, clippedL).mean() - 0.01 * entropy
 
         # Calculate gradients, backward propagation for actor network
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
+
+        # Gradient clipping
+        nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
+
         self.actor_optimizer.step()
+
+        return actor_loss.item()
     
 
-    def updateCritic(self, imu, servo, lidar, returns):
+    def updateCritic(self, imu, servo, lidar, returns, old_values):
         """
         From jennyf12-patch-1
     
@@ -464,37 +532,36 @@ class PPO:
         if returns.dim() == 1:
             returns = returns.unsqueeze(-1)
 
-        # Set critic to training mode
-        self.critic.train()
-        total_loss = 0.0
+        # Forward Pass: predict state values
+        predicted_values = self.critic(imu, servo, lidar)
 
-        # Train for multiple epochs
-        for _ in range(self.epochs):
-            # Forward Pass: predict state values
-            predicted_values = self.critic(imu, servo, lidar)
+        # Clip value predictions (similar to policy clipping)
+        old_values = old_values.unsqueeze(-1) if old_values.dim() == 1 else old_values
+        value_pred_clipped = old_values + torch.clamp(predicted_values - old_values, -self.clipping, self.clipping)
 
-            # Compute MSE loss: mean squared error between prediction and target
-            loss = nn.MSELoss()(predicted_values, returns)
+        # Compute MSE loss: mean squared error between prediction and target
+        # Compute losses for clipped and unclipped
+        value_loss_unclipped = (predicted_values - returns).pow(2)
+        value_loss_clipped = (value_pred_clipped - returns).pow(2)
+    
+        # Take maximum (pessimistic)
+        loss = 0.5 * torch.max(value_loss_unclipped, value_loss_clipped).mean()
+        # loss = nn.MSELoss()(predicted_values, returns)
 
-            # Back propagation
-            # Clear previous gradients
-            self.critic_optimizer.zero_grad()
+        # Back propagation
+        # Clear previous gradients
+        self.critic_optimizer.zero_grad()
 
-            # Compute gradients of the loss
-            loss.backward()
+        # Compute gradients of the loss
+        loss.backward()
 
-            # Gradient clipping, helps prevent exploding gradients
-            nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
+        # Gradient clipping, helps prevent exploding gradients
+        nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
 
-            # Update network weights
-            self.critic_optimizer.step()
+        # Update network weights
+        self.critic_optimizer.step()
 
-            # Accumulate loss
-            total_loss += loss.item()
-
-        # Calculate average loss across all epochs
-        avg_loss = total_loss / self.epochs
-        return avg_loss
+        return loss.item()
     
 
     def clear_memory(self):
