@@ -5,11 +5,8 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-# If you can, download pybullet and gymnasium so you can run the test environment
-
 class PPO:
     def __init__(self, discount=0.99, clipping=0.2, advantage=0.95, epoch=10, batch_size=64):
-        # the values here are placeholders rn - we can test and change later
         # Networks
         self.actor = Actor()
         self.critic = Critic()
@@ -49,6 +46,7 @@ class PPO:
         """
         imu = obs[:6]
         servo = obs[6:18]
+        # lidar = obs[18:]
         lidar = obs[18:21]
         return imu, servo, lidar
 
@@ -79,6 +77,7 @@ class PPO:
         #split each sensor into separate paramaters for get_action and get_value
         imu = state[:6]
         servo = state[6:18]
+        # lidar = state[18:]
         lidar = state[18:21]
 
         # make each one into a tensor
@@ -171,6 +170,7 @@ class PPO:
         # Split observation into components
         imu = obs[:6]
         servo = obs[6:18]
+        # lidar = obs[18:]
         lidar = obs[18:21]
         
         # Store each component
@@ -204,6 +204,9 @@ class PPO:
             Dictionary containing collected trajectory data
         """
         print(f"\nStarting trajectory collection for {num_steps} steps")
+
+        print("OBS SHAPE:", len(state))
+        print("LIDAR RAW:", len(state[18:]))
 
         # Reset environment to get initial state
         state = env.reset()
@@ -324,7 +327,7 @@ class PPO:
                 next_done = 0  # Assume not done for bootstrap
             else:
                 next_val = values[t + 1]
-                next_done = dones[t + 1]
+                next_done = dones[t] # is it t or t+1
             
             # return self.calculateTDResidual(next_value, rewards_tensor, critic_values_tensor, dones_tensor) + (self.discount * gae_parameter * next_advantage)
             # TD error = current reward + (discount * next value * not_done) - current value

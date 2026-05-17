@@ -9,8 +9,9 @@ import numpy as np
 #in this case, the output is the 
 #input for our 12 servo motors (3 on each leg, to move the joints)
 ACTION_SPACE_SIZE = 12
+LIDAR_SIZE = 360
 
-#Actor state input consists of IMU (6), Servo (12) if Lidar is added (3)
+#Actor state input consists of IMU (6), Servo (12) if Lidar is added (360)
 
 #This file defines 2 neural networks for PPO: 
 # -actor: decides what action to take. is the bot basically
@@ -34,6 +35,8 @@ class Actor(nn.Module):
         self.servo_fc2 = nn.Linear(64, 32)
         
         #for the lidar 
+        # self.lidar_fc1 = nn.Linear(LIDAR_SIZE, 128)
+        # self.lidar_fc2 = nn.Linear(128, 64)
         self.lidar_fc1 = nn.Linear(3, 64)
         self.lidar_fc2 = nn.Linear(64, 32)
         
@@ -108,6 +111,8 @@ class Critic(nn.Module):
         self.servo_fc1 = nn.Linear(12, 64)
         self.servo_fc2 = nn.Linear(64, 32)
 
+        # self.lidar_fc1 = nn.Linear(LIDAR_SIZE, 128)
+        # self.lidar_fc2 = nn.Linear(128, 64)
         self.lidar_fc1 = nn.Linear(3, 64)
         self.lidar_fc2 = nn.Linear(64, 32)
         
