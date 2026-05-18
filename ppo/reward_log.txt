@@ -380,3 +380,6 @@ ep=374  total=-32211.98  per_step=-16.106  steps=2000  end=timeout  mean100=-309
 ep=375  total=-33691.21  per_step=-16.846  steps=2000  end=timeout  mean100=-31249.86  mean_len=1796  coll%=22.2
 ep=376  total=-25016.04  per_step=-20.174  steps=1240  end=collision  mean100=-30626.47  mean_len=1740  coll%=30.0
 ep=377  total=-16037.82  per_step=-16.706  steps=960  end=collision  mean100=-29300.23  mean_len=1669  coll%=36.4
+ep=378  total=-28644.28  per_step=-14.322  steps=2000  end=timeout  mean100=-28644.28  mean_len=2000  coll%=0.0
+ep=379  total=-36749.16  per_step=-18.375  steps=2000  end=timeout  mean100=-32696.72  mean_len=2000  coll%=0.0
+ep=380  total=-36256.90  per_step=-18.128  steps=2000  end=timeout  mean100=-33883.45  mean_len=2000  coll%=0.0

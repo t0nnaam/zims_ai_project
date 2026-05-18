@@ -265,6 +265,13 @@ class PPO:
         advantages = self.calcAdvantage(rewards=self.rewards, values=self.values, next_value=next_value, dones=self.dones, gae_parameter=self.advantage)
         returns = self.calcDiscountedReturns(rewards=self.rewards, dones=self.dones)
 
+        print(f"\n=== UPDATE DIAGNOSTICS ===")
+        print(f"Advantages - Mean: {advantages.mean():.4f}, Std: {advantages.std():.4f}")
+        print(f"Returns - Mean: {returns.mean():.4f}, Std: {returns.std():.4f}")
+        print(f"Values - Mean: {np.mean(self.values):.4f}, Std: {np.std(self.values):.4f}")
+        print(f"Rewards - Mean: {np.mean(self.rewards):.4f}, Std: {np.std(self.rewards):.4f}")
+        print(f"========================\n")
+
          # Store old values before converting to tensor
         old_values_np = np.array(self.values)       
 
