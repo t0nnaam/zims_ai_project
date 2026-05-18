@@ -12,8 +12,8 @@ class PPO:
         self.critic = Critic()
         
         # Optimizers
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=0.001)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=0.001)
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=0.0001)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=0.0003)
         
         # Hyperparameters
         self.discount = discount  # discount factor
@@ -258,7 +258,12 @@ class PPO:
         else:
             # Get the last state and estimate its value
             last_obs = np.concatenate([self.states['imu'][-1], self.states['servo'][-1], self.states['lidar'][-1]])
-            imu_t, servo_t, lidar_t = self._obs_to_tensors(last_obs)
+            imu = last_obs[:6]
+            servo = last_obs[6:18]
+            lidar = last_obs[18:]
+            imu_t = torch.FloatTensor(imu).unsqueeze(0)
+            servo_t = torch.FloatTensor(servo).unsqueeze(0)
+            lidar_t = torch.FloatTensor(lidar).unsqueeze(0)
             with torch.no_grad():
                 next_value = self.critic.get_value(imu_t, servo_t, lidar_t).item()
 

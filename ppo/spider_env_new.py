@@ -163,7 +163,8 @@ FALL_ANGLE_RAD = 1.05    # ~60° in pitch or roll — robot considered fallen
 # Two priorities only:
 #   1. Obstacle avoidance  (proximity + forward-danger + collision + avoidance)
 #   2. Maximise +X         (forward displacement + progress shaping)
-FORWARD_WEIGHT       = 8.0    # X-displacement reward per metre
+# FORWARD_WEIGHT       = 8.0    # X-displacement reward per metre
+FORWARD_WEIGHT = 20.0  
 SAFE_RADIUS          = 3.5    # m — warning zone for avoidance signal (raised from 3.0 to give more obstacle clearance margin)
 OBSTACLE_WEIGHT      = 5.0    # mild background proximity signal — approach+danger carry the main weight
 # Exponential steepness: penalty = (exp(EXP_K * closeness) - 1) / (exp(EXP_K) - 1)
@@ -187,7 +188,8 @@ APPROACH_WEIGHT        = 12.0
 # forward_threat = max(closeness × forward_alignment) across all hazards in safe zone.
 # bonus = max(0, vx) × (1 − forward_threat) × weight
 # Full strength when the forward arc is empty; fades to 0 as an obstacle enters it.
-CLEAR_PATH_WEIGHT      = 4.0
+# CLEAR_PATH_WEIGHT      = 4.0
+CLEAR_PATH_WEIGHT = 8.0 
 ALIGNMENT_WEIGHT       = 2.0   # reward for facing +X when forward path is clear
 
 # Direct per-step reward for actively spinning toward +X while misaligned.
@@ -224,10 +226,12 @@ WALL_SAFE_RADIUS   = 3.0   # m — wall proximity warning zone (raised to give e
 # Equivalent to adding a second forward-weight that stops contributing once the
 # goal is reached, giving a strong dense signal for every centimetre of progress.
 GOAL_X           = 5.0     # m — target X coordinate (must match step() check)
-PROGRESS_WEIGHT  = 15.0    # shaping reward per metre closer to goal (raised: primary goal-direction signal)
+# PROGRESS_WEIGHT  = 15.0    # shaping reward per metre closer to goal (raised: primary goal-direction signal)
+PROGRESS_WEIGHT = 25.0 
 # Small per-step cost so the agent cannot avoid the goal-penalty of wandering.
 # An efficient path (few steps, reaches goal) pays less total than a slow/wandering path.
-STEP_PENALTY     = 0.4     # subtracted every step regardless of what else happens
+# STEP_PENALTY     = 0.4     # subtracted every step regardless of what else happens
+STEP_PENALTY = 0.1
 
 # ── Residual action scale and smoothing ───────────────────────────────────────
 # RESIDUAL_SCALE multiplies the agent's raw action before it is added to the
