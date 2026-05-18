@@ -27,8 +27,7 @@ if not train:
     agent.load_models()   # loads saved weights if they exist, otherwise starts fresh
 
 # ── Training loop ─────────────────────────────────────────────────────────────
-# episode        = 0
-episode = 366
+episode        = 0
 episode_reward = 0.0
 episode_length = 0
 reward_history = []

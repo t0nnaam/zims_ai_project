@@ -1,12 +1,12 @@
 # a script to evaluate the model because i don't trust my own brain
 from spider_env_new import SpiderEnv
-from ppo import PPO
+from ppo import Agent
 import numpy as np
 
 def evaluate_model(model_path, num_episodes=100):
     env = SpiderEnv(render_mode=None)  # No rendering for speed
-    agent = PPO()
-    agent.load_model(model_path)
+    agent = Agent(n_actions=env.action_space.shape[0], input_dims=env.observation_space.shape[0])
+    agent.load_models()
     
     rewards = []
     lengths = []
