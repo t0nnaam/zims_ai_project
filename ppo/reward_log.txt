@@ -872,3 +872,5 @@ ep=649  total=-31831.00  per_step=-15.916  steps=2000  end=timeout  mean100=-249
 ep=650  total=-29966.11  per_step=-14.983  steps=2000  end=timeout  mean100=-25022.74  mean_len=1680  coll%=41.0  a_loss=-0.6246  c_loss=4841.8949
 ep=651  total=-28092.56  per_step=-14.046  steps=2000  end=timeout  mean100=-25105.75  mean_len=1689  coll%=40.0  a_loss=-0.6174  c_loss=2808.2508
 ep=652  total=-8763.38  per_step=-18.765  steps=467  end=collision  mean100=-24911.35  mean_len=1675  coll%=40.0  a_loss=-0.6541  c_loss=470.6950
+ep=1  total=-26253.44  per_step=-13.127  steps=2000  end=timeout  mean100=-26253.44  mean_len=2000  coll%=0.0  a_loss=-0.6172  c_loss=4245.5471
+ep=2  total=-29129.77  per_step=-14.565  steps=2000  end=timeout  mean100=-27691.60  mean_len=2000  coll%=0.0  a_loss=-0.6154  c_loss=2539.5831
