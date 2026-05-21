@@ -383,3 +383,15 @@ ep=377  total=-16037.82  per_step=-16.706  steps=960  end=collision  mean100=-29
 ep=378  total=-28644.28  per_step=-14.322  steps=2000  end=timeout  mean100=-28644.28  mean_len=2000  coll%=0.0
 ep=379  total=-36749.16  per_step=-18.375  steps=2000  end=timeout  mean100=-32696.72  mean_len=2000  coll%=0.0
 ep=380  total=-36256.90  per_step=-18.128  steps=2000  end=timeout  mean100=-33883.45  mean_len=2000  coll%=0.0
+ep=378  total=-32633.51  per_step=-16.317  steps=2000  end=timeout  mean100=-32633.51  mean_len=2000  coll%=0.0
+ep=379  total=-33905.79  per_step=-16.953  steps=2000  end=timeout  mean100=-33269.65  mean_len=2000  coll%=0.0
+ep=380  total=-30711.88  per_step=-15.356  steps=2000  end=timeout  mean100=-32417.06  mean_len=2000  coll%=0.0
+ep=381  total=-29946.27  per_step=-14.973  steps=2000  end=timeout  mean100=-31799.36  mean_len=2000  coll%=0.0
+ep=382  total=-13557.34  per_step=-19.792  steps=685  end=collision  mean100=-28150.96  mean_len=1737  coll%=20.0
+ep=383  total=-33123.86  per_step=-16.562  steps=2000  end=timeout  mean100=-28979.77  mean_len=1781  coll%=16.7
+ep=384  total=-38151.15  per_step=-19.076  steps=2000  end=timeout  mean100=-30289.97  mean_len=1812  coll%=14.3
+ep=385  total=-26846.16  per_step=-13.423  steps=2000  end=timeout  mean100=-29859.49  mean_len=1836  coll%=12.5
+ep=386  total=-21985.14  per_step=-19.612  steps=1121  end=collision  mean100=-28984.57  mean_len=1756  coll%=22.2
+ep=387  total=-33463.49  per_step=-16.732  steps=2000  end=timeout  mean100=-29432.46  mean_len=1781  coll%=20.0
+ep=388  total=-22942.08  per_step=-16.529  steps=1388  end=collision  mean100=-28842.42  mean_len=1745  coll%=27.3
+ep=389  total=-18037.18  per_step=-21.916  steps=823  end=collision  mean100=-27941.99  mean_len=1668  coll%=33.3

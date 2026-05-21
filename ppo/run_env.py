@@ -18,7 +18,7 @@ LOG_FILE      = "reward_log.txt"
 MODEL_PATH    = "./models/spider_ppo.pth"
 
 RESUME_TRAINING = True 
-train = True # set to True to train, False to just run with saved weights (if they exist)
+train = False # set to True to train, False to just run with saved weights (if they exist)
 
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
