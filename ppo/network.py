@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
 
 #this is the number of control outputs your agent 
 #(the agent is the whole decision making system ie the whole bot)
