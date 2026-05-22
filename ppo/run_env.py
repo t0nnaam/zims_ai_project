@@ -1,108 +1,93 @@
-"""
-Training loop for SpdrBot using the PPO agent.
-
-The env runs one step at a time. When an episode ends (robot fell, reached
-the goal, or hit the MAX_STEPS time limit), the agent learns from everything
-it experienced, then a new episode starts automatically.
-"""
-
 import os
 import numpy as np
-from spider_env_new import SpiderEnv
+import time
+import board
+import busio
+from adafruit_servokit import ServoKit
 from ppo import PPO
 
-# ── Config ────────────────────────────────────────────────────────────────────
-TOTAL_STEPS   = 1_000_000   # how many env steps to train for in total
-SAVE_INTERVAL = 10          # save model weights every N episodes
-LOG_FILE      = "reward_log.txt"
-MODEL_PATH    = "./models/spider_ppo.pth"
+# ── Hardware Setup ────────────────────────────────────────────────────────────
+# Initialize your real I2C bus and Servo driver tested in your screenshot
+i2c = busio.I2C(board.SCL, board.SDA)
+kit = ServoKit(channels=16, i2c=i2c)
 
-RESUME_TRAINING = True 
-train = False # set to True to train, False to just run with saved weights (if they exist)
+MODEL_PATH = "./models/spider_ppo.pth"
 
+# ── Physical Robot Environment Wrapper ────────────────────────────────────────
+class RealSpiderEnv:
+    def __init__(self):
+        # Initialize your physical sensors here (e.g., Mini LiDAR, IMU)
+        pass
 
-# ── Setup ─────────────────────────────────────────────────────────────────────
-env   = SpiderEnv(render_mode="human")
-obs, _= env.reset()
+    def reset(self):
+        print("Resetting robot to default standing pose...")
+        # Command your real servos to a starting position
+        for i in range(12):
+            kit.servo[i].angle = 90 # Adjust to your robot's calibration midpoint
+        time.sleep(1.0)
+        return self._get_hardware_observations()
 
-# agent = PPO(n_actions=env.action_space.shape[0], input_dims=env.observation_space.shape[0])
+    def _get_hardware_observations(self):
+        # 1. Read your real 6-axis IMU values (accel x/y/z, gyro r/p/y)
+        imu_data = [0.0] * 6 # Replace with your real IMU sensor read library
+        
+        # 2. Get your current 12 servo angles
+        servo_data = [kit.servo[i].angle for i in range(12)]
+        
+        # 3. Read your 360-degree LiDAR array
+        lidar_data = [1.0] * 360 # Replace with your real LiDAR serial read library
+        
+        # Combine them into a single state vector matching your network's expectations
+        return np.concatenate([imu_data, servo_data, lidar_data])
+
+    def step(self, action):
+        # Map the continuous PPO action outputs (usually between -1 and 1) to physical angles (0 to 180)
+        for i in range(12):
+            target_angle = int((action[i] + 1) * 90) # Maps -1 -> 0 deg, 0 -> 90 deg, 1 -> 180 deg
+            # Clip values safely to ensure servos don't force-jam your linkages
+            target_angle = max(20, min(160, target_angle)) 
+            kit.servo[i].angle = target_angle
+        
+        # Give the hardware a tiny fraction of a second to physically move
+        time.sleep(0.05) 
+        
+        next_obs = self._get_hardware_observations()
+        
+        # Calculate a safety reward (e.g., negative penalty if the IMU detects it fell over)
+        reward = 1.0 
+        terminated = False # Set to True if your IMU detects a catastrophic tilt/fall
+        truncated = False
+        info = {}
+        
+        return next_obs, reward, terminated, truncated, info
+
+# ── Run Deployment ────────────────────────────────────────────────────────────
+env = RealSpiderEnv()
 agent = PPO()
 
-# Load existing model if resuming or just running
-if RESUME_TRAINING:
+# Load the brain weights trained in your simulation setup
+if os.path.exists(MODEL_PATH):
     agent.load_model(MODEL_PATH)
-    print("Model loaded - resuming training")
-elif not train:
-    agent.load_model(MODEL_PATH) # loads saved weights if they exist
+    print("Successfully loaded simulation weights! Running live hardware deployment...")
+else:
+    print(f"Warning: Checkpoint not found at {MODEL_PATH}. Running with randomized weights.")
 
-# ── Training loop ─────────────────────────────────────────────────────────────
-# episode        = 0
-episode = 377
-episode_reward = 0.0
-episode_length = 0
-reward_history = []
-length_history = []
-collision_history = []
+obs = env.reset()
 
-for step in range(TOTAL_STEPS):
+print("Robot active. Press Ctrl+C to stop.")
+try:
+    while True:
+        # Pass live hardware sensor readings to the neural network
+        action, log_prob, value = agent.choose_action(obs)
+        
+        # Exert actions to physical servos and gather the next state
+        obs, reward, terminated, truncated, info = env.step(action)
+        
+        if terminated or truncated:
+            obs = env.reset()
 
-    # action, raw_action, log_prob, value = agent.choose_action(obs)
-    action, log_prob, value = agent.choose_action(obs)
-    current_obs = obs   # save obs_t before stepping — log_prob/value were computed here
-    obs, reward, terminated, truncated, info = env.step(action)
-    episode_reward += reward
-    episode_length += 1
-    done = terminated or truncated
-
-    # store current_obs (obs_t) so learn() evaluates new policy on the same
-    # observation that produced log_prob and value — fixes obs_t vs obs_t+1 mismatch
-    # agent.remember(current_obs, raw_action, log_prob, value, reward, done)
-    agent.save_memory(current_obs, action, log_prob, value, reward, done)
-
-    if done:
-        episode    += 1
-        end_reason  = info.get("end_reason", "?")
-        per_step    = episode_reward / episode_length
-
-        reward_history.append(episode_reward)
-        length_history.append(episode_length)
-        collision_history.append(1 if end_reason == "collision" else 0)
-
-        mean_reward    = np.mean(reward_history[-100:])
-        mean_length    = np.mean(length_history[-100:])
-        collision_rate = np.mean(collision_history[-100:]) * 100.0
-
-        # actor_loss, critic_loss = agent.learn()
-        agent.update()
-
-        with open(LOG_FILE, "a") as f:
-            f.write(
-                f"ep={episode}"
-                f"  total={episode_reward:.2f}"
-                f"  per_step={per_step:.3f}"
-                f"  steps={episode_length}"
-                f"  end={end_reason}"
-                f"  mean100={mean_reward:.2f}"
-                f"  mean_len={mean_length:.0f}"
-                f"  coll%={collision_rate:.1f}"
-                # f"  a_loss={actor_loss:.4f}"
-                # f"  c_loss={critic_loss:.4f}"
-                f"\n"
-            )
-
-        if episode % SAVE_INTERVAL == 0:
-            print(
-                f"ep {episode:>5} | step {step:>7} | "
-                f"total {episode_reward:>8.2f} | steps {episode_length:>5} | "
-                f"end={end_reason:<9} | mean100 {mean_reward:>8.2f} | "
-                f"coll% {collision_rate:>5.1f} | "
-                # f"a_loss {actor_loss:.4f} | c_loss {critic_loss:.4f}"
-            )
-            # agent.save_models()
-            agent.save_model(MODEL_PATH)
-
-        obs, _ = env.reset()
-        episode_reward = 0.0
-        episode_length = 0
-
-env.close()
+except KeyboardInterrupt:
+    print("\nShutting down safely. Relaxing all servos.")
+    # Optional: Turn off servo signals so they don't draw continuous power/heat while standing still
+    for i in range(12):
+        kit.servo[i].angle = None
