@@ -1,101 +1,62 @@
-
 import torch
 import torch.nn as nn
 import numpy as np
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
 
-#this is the number of control outputs your agent 
-#(the agent is the whole decision making system ie the whole bot)
-#produces at each time step. 
-#in this case, the output is the 
-#input for our 12 servo motors (3 on each leg, to move the joints)
 ACTION_SPACE_SIZE = 12
-
-#Actor state input consists of IMU (6), Servo (12) if Lidar is added (360)
-
-#This file defines 2 neural networks for PPO: 
-# -actor: decides what action to take. is the bot basically
-# -critic: evaluates how good the state is 
 
 class Actor(nn.Module): 
     def __init__(self):
         super(Actor, self).__init__()
         
-        #this is for the IMUs (Inertial measurement units)
-        #takes 6 IMU numbers and turns them into 64 neurons, which have weights inside
+        # IMU processing (6 inputs -> 32 outputs)
         self.imu_fc1 = nn.Linear(6, 64)
-        #takes the 64 numbers and refines the neurons to be better
         self.imu_fc2 = nn.Linear(64, 32)
         
-        #a neuron multiples inputs by weights, adds toegther and passes them through the 
-        #activation function 
-        
-        #for the servos
+        # Servo processing (12 inputs -> 32 outputs)
         self.servo_fc1 = nn.Linear(12, 64)
         self.servo_fc2 = nn.Linear(64, 32)
         
-        #for the lidar 
-        self.lidar_fc1 = nn.Linear(359, 128)
+        # Lidar processing (Changed to 360 for standard 1-degree increments)
+        self.lidar_fc1 = nn.Linear(360, 128)
         self.lidar_fc2 = nn.Linear(128, 64)
         
-        #taking all the inputs from all the neurons and combining them to 64
+        # Combined sensor feature space (32 + 32 + 64 = 128)
         self.combined_fc = nn.Linear(128, 64)
         
-        #takes 64 inputs (from the combined input) and makes it into a vector that has 12 outputs
-        #one for each of the servo motors
-        #calculates what the agent thinks the best action is
         self.mean_layer = nn.Linear(64, ACTION_SPACE_SIZE)
-        
-        #calculates how "sure" the agent is of the action
         self.log_std_layer = nn.Linear(64, ACTION_SPACE_SIZE)
         
-        #these are our activation functions
-        #makes it so that negative inputs arent accounted in neuron
         self.relu = nn.ReLU()
-        #makes it so output is between -1 and 1
         self.tanh = nn.Tanh()
 
     def forward(self, imu, servo, lidar):
-        #passes the imus through the activation function twice so that it 
-        # can determine the values.
-        #makes 64 imu neurons
         x_imu = self.relu(self.imu_fc1(imu))
-        #condenses neurons to 32
         x_imu = self.relu(self.imu_fc2(x_imu))
         
-        #makes servo neurons
         x_servo = self.relu(self.servo_fc1(servo))
         x_servo = self.relu(self.servo_fc2(x_servo))
 
-        #makes lidar neurons
         x_lidar = self.relu(self.lidar_fc1(lidar))
         x_lidar = self.relu(self.lidar_fc2(x_lidar))
         
-        #puts outputs from neuron layers to make a 96 length vector that has all sensor
-        #info
         combined = torch.cat([x_imu, x_servo, x_lidar], dim=-1)
-        #combines the 96 length vector to 64 neurons, which is sent through the activation
-        #function one more time to make only positive values
         x = self.relu(self.combined_fc(combined))
         
-        #maps 64 neurons to the 12 servo outputs 
         mean = self.tanh(self.mean_layer(x))
-        #calculates how sure the bot is of this action, this mechanism lets the bot try new 
-        #things sometimes
-        log_std = self.tanh(self.log_std_layer(x))
+        
+        # FIX: Removed Tanh to allow exploration variance to shrink down cleanly
+        log_std = self.log_std_layer(x)
+        log_std = torch.clamp(log_std, min=-20, max=2) 
         
         return mean, log_std
     
     def get_action(self, imu, servo, lidar):
         mean, log_std = self.forward(imu, servo, lidar)
-        #turns the log of std back to normal standard distribution
         std = log_std.exp()  
-        #Creates a Normal (Gaussian) distribution for the action centered at mean 
-        # & spread out by standard distribution
         dist = torch.distributions.Normal(mean, std)
-        #takes one action from normal distribution
         action = dist.sample()
-        #Computes the log probability of the sampled action under the distribution dist.
         log_prob = dist.log_prob(action).sum(dim=-1)
         return action, log_prob
 
@@ -109,12 +70,10 @@ class Critic(nn.Module):
         self.servo_fc1 = nn.Linear(12, 64)
         self.servo_fc2 = nn.Linear(64, 32)
 
-        self.lidar_fc1 = nn.Linear(359, 128)
+        self.lidar_fc1 = nn.Linear(360, 128)
         self.lidar_fc2 = nn.Linear(128, 64)
         
         self.combined_fc = nn.Linear(128, 64)
-        
-        #makes a layer to calculate how good the action is vs what we expected
         self.value_layer = nn.Linear(64, 1)
         
         self.relu = nn.ReLU()
@@ -131,14 +90,9 @@ class Critic(nn.Module):
         
         combined = torch.cat([x_imu, x_servo, x_lidar], dim=-1)
         x = self.relu(self.combined_fc(combined))
-        
-        #decides how good the action was vs what was expected by taking all 64 
-        # values from neurons and calculating a single value
         value = self.value_layer(x)
-        
         return value
     
     def get_value(self, imu, servo, lidar):
-        with torch.no_grad():  # rollout doesn’t need gradients
+        with torch.no_grad():  
             return self.forward(imu, servo, lidar)
-        
