@@ -4,6 +4,7 @@ import random
 import torch
 import torch.nn as nn
 import numpy as np
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class PPO:
     def __init__(self, discount=0.99, clipping=0.2, advantage=0.95, epoch=10, batch_size=64):
