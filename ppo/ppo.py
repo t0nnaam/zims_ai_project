@@ -8,7 +8,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class PPO:
     def __init__(self, discount=0.99, clipping=0.2, advantage=0.95, epoch=10, batch_size=64):
-        # Networks - Map explicitly to Jetson's CUDA or CPU
+        # Networks - Explicitly loaded onto Jetson CUDA or CPU
         self.actor = Actor().to(device)
         self.critic = Critic().to(device)
         
@@ -17,19 +17,19 @@ class PPO:
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=0.001)
         
         # Hyperparameters
-        self.discount = discount  
-        self.clipping = clipping  
-        self.advantage = advantage 
-        self.epochs = epoch 
-        self.batch_size = batch_size 
-        self.max_grad_norm = 0.5 
+        self.discount = discount  # discount factor
+        self.clipping = clipping  # PPO clipping parameter
+        self.advantage = advantage # for advantage estimation
+        self.epochs = epoch # number of epochs
+        self.batch_size = batch_size # number of samples per update
+        self.max_grad_norm = 0.5 # safety limit for gradient magnitude
         
         # Storage for trajectories
         self.states = {'imu': [], 'servo': [], 'lidar':[]}
         self.actions = []
         self.rewards = []
         self.values = []
-        self.log_probs = [] 
+        self.log_probs = [] # store old log probs for PPO
         self.dones = []
     
 
@@ -39,12 +39,11 @@ class PPO:
         servo = state[6:18]
         lidar = state[18:]
 
-        # Push feature tensors explicitly to device
+        # Push tensors to the designated device (GPU or CPU)
         imu_tensor = torch.FloatTensor(imu).unsqueeze(0).to(device)
         servo_tensor = torch.FloatTensor(servo).unsqueeze(0).to(device)
         lidar_tensor = torch.FloatTensor(lidar).unsqueeze(0).to(device)
         
-        # Get action from actor
         with torch.no_grad():
             action, log_prob = self.actor.get_action(imu_tensor, servo_tensor, lidar_tensor)
             value = self.critic.get_value(imu_tensor, servo_tensor, lidar_tensor)
@@ -68,6 +67,30 @@ class PPO:
         dist = torch.distributions.Normal(mean, std)
         log_prob = dist.log_prob(actions_tensor).sum(dim=-1)
         return log_prob
+
+
+    def _obs_to_tensors(self, state):
+        """ Helper method to format state components directly into proper device tensors """
+        imu = state[:6]
+        servo = state[6:18]
+        lidar = state[18:]
+        
+        imu_tensor = torch.FloatTensor(imu).unsqueeze(0).to(device)
+        servo_tensor = torch.FloatTensor(servo).unsqueeze(0).to(device)
+        lidar_tensor = torch.FloatTensor(lidar).unsqueeze(0).to(device)
+        return imu_tensor, servo_tensor, lidar_tensor
+
+
+    def get_data(self):
+        """ Helper method to safely bundle and fetch experience data streams """
+        return {
+            'states': self.states,
+            'actions': self.actions,
+            'rewards': self.rewards,
+            'values': self.values,
+            'log_probs': self.log_probs,
+            'dones': self.dones
+        }
 
 
     def save_model(self, filepath): 
@@ -126,7 +149,15 @@ class PPO:
 
         for step in range(num_steps):
             action, log_prob, value = self.choose_action(state)
-            next_state, reward, done, info = env.step(action)
+            
+            # Accommodate env return structures cleanly (Gymnasiums return 5 items, legacy Gyms return 4)
+            step_results = env.step(action)
+            if len(step_results) == 5:
+                next_state, reward, terminated, truncated, info = step_results
+                done = terminated or truncated
+            else:
+                next_state, reward, done, info = step_results
+
             self.save_memory(state, action, log_prob, value, reward, done)
             state = next_state
             episode_reward += reward
@@ -136,17 +167,37 @@ class PPO:
                 episode_rewards.append(episode_reward)
                 print(f"Episode {episode_count} completed | Reward: {episode_reward:.2f}")
                 state = env.reset()
+                
+                # Unwrap observation tuples if returned by newer env wrappers
+                if isinstance(state, tuple):
+                    state = state[0]
                 episode_reward = 0
 
         print(f"Collection complete! {num_steps} steps, {episode_count} episodes")
         if episode_rewards:
             print(f"Average reward: {np.mean(episode_rewards):.2f}")
 
-        # FIX: Removed the non-existent self.get_data() call
-        return episode_rewards
+        return self.get_data()
     
 
+    def calculateTDResidual(self, rewards, values, next_value, dones): 
+        rewards = torch.FloatTensor(rewards).to(device)
+        values = torch.FloatTensor(values).to(device)
+        dones = torch.FloatTensor(dones).to(device)
+
+        if isinstance(next_value, (int, float)):
+            next_value = torch.tensor([next_value], dtype=torch.float32).to(device)
+        elif next_value.dim() > 1:
+            next_value = next_value.squeeze()
+
+        next_values = torch.cat([values[1:], next_value])
+        mask_tensor = 1.0 - dones
+        td_residual = rewards + (self.discount * mask_tensor * next_values) - values
+        return td_residual 
+
+
     def calcAdvantage(self, rewards, values, next_value, dones, gae_parameter = 0.95):
+        """ Calculate Generalized Advantage Estimation (GAE) """
         rewards = torch.FloatTensor(rewards)
         values = torch.FloatTensor(values)
         dones = torch.FloatTensor(dones)
@@ -175,6 +226,7 @@ class PPO:
 
 
     def calcDiscountedReturns(self, rewards, dones):
+        """ Calculate Discounted Returns """
         returns = []
         discounted_return = 0
         
@@ -188,14 +240,12 @@ class PPO:
 
 
     def update(self):
-        """ update = learn function """
+        """ Update optimization pass """
         if self.dones[-1]:
             next_value = 0.0
         else:
-            # FIX: Extracted features straight from storage arrays, skipping non-existent _obs_to_tensors method
-            imu_t = torch.FloatTensor(self.states['imu'][-1]).unsqueeze(0).to(device)
-            servo_t = torch.FloatTensor(self.states['servo'][-1]).unsqueeze(0).to(device)
-            lidar_t = torch.FloatTensor(self.states['lidar'][-1]).unsqueeze(0).to(device)
+            last_obs = np.concatenate([self.states['imu'][-1], self.states['servo'][-1], self.states['lidar'][-1]])
+            imu_t, servo_t, lidar_t = self._obs_to_tensors(last_obs)
             with torch.no_grad():
                 next_value = self.critic.get_value(imu_t, servo_t, lidar_t).item()
 
@@ -209,7 +259,7 @@ class PPO:
 
         old_values_np = np.array(self.values)       
 
-        # Send target optimization data tensors straight to device
+        # Send arrays directly onto runtime target device
         imu_tensor = torch.FloatTensor(np.array(self.states['imu'])).to(device)
         servo_tensor = torch.FloatTensor(np.array(self.states['servo'])).to(device)
         lidar_tensor = torch.FloatTensor(np.array(self.states['lidar'])).to(device)
@@ -240,4 +290,55 @@ class PPO:
         self.clear_memory()
     
 
-    def updateActor(self, imu, servo, lidar, actions,
+    def updateActor(self, imu, servo, lidar, actions, log_prob_old, advantages):
+        log_prob_new = self.compute_log_prob(imu, servo, lidar, actions)
+        ratio = torch.exp(log_prob_new - log_prob_old)
+    
+        unclippedL = ratio * advantages
+        ratio_clipped  = torch.clamp(ratio, 1 - self.clipping, 1 + self.clipping)
+        clippedL = ratio_clipped  * advantages
+
+        mean, log_std = self.actor(imu, servo, lidar)
+        std = log_std.exp()
+        dist = torch.distributions.Normal(mean, std)
+        entropy = dist.entropy().sum(dim=-1).mean()
+
+        actor_loss = -torch.min(unclippedL, clippedL).mean() - 0.01 * entropy
+
+        self.actor_optimizer.zero_grad()
+        actor_loss.backward()
+        nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
+        self.actor_optimizer.step()
+
+        return actor_loss.item()
+    
+
+    def updateCritic(self, imu, servo, lidar, returns, old_values):
+        if returns.dim() == 1:
+            returns = returns.unsqueeze(-1)
+
+        predicted_values = self.critic(imu, servo, lidar)
+        old_values = old_values.unsqueeze(-1) if old_values.dim() == 1 else old_values
+        
+        value_pred_clipped = old_values + torch.clamp(predicted_values - old_values, -self.clipping, self.clipping)
+        value_loss_unclipped = (predicted_values - returns).pow(2)
+        value_loss_clipped = (value_pred_clipped - returns).pow(2)
+    
+        loss = 0.5 * torch.max(value_loss_unclipped, value_loss_clipped).mean()
+
+        self.critic_optimizer.zero_grad()
+        loss.backward()
+        nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
+        self.critic_optimizer.step()
+
+        return loss.item()
+    
+
+    def clear_memory(self):
+        self.states = {'imu': [], 'servo': [], 'lidar': []}
+        self.actions = []
+        self.rewards = []
+        self.log_probs = []
+        self.values = []
+        self.dones = []
+        print("Buffers cleared")
