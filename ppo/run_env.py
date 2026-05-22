@@ -19,7 +19,7 @@ train = False # set to True to train, False to just run with saved weights (if t
 
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
-env   = SpiderEnv(render_mode="human")
+env   = SpiderEnv(render_mode=None)
 obs, _= env.reset()
 
 agent = Agent(n_actions=env.action_space.shape[0], input_dims=env.observation_space.shape[0])
