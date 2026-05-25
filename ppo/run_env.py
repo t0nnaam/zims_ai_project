@@ -4,12 +4,20 @@ import time
 import board
 import busio
 from adafruit_servokit import ServoKit
+from sensors import LidarReader, IMUReader
 from ppo import PPO
 
 # ── Hardware Setup ────────────────────────────────────────────────────────────
 # Initialize your real I2C bus and Servo driver tested in your screenshot
 i2c = busio.I2C(board.SCL, board.SDA)
 kit = ServoKit(channels=16, i2c=i2c)
+
+lidar = LidarReader(port='/dev/ttyUSB0')
+lidar.connect()
+print("LiDAR connected.")
+ 
+imu = IMUReader(bus=1)
+print("IMU connected.")
 
 MODEL_PATH = "./models/spider_ppo.pth"
 
@@ -29,13 +37,15 @@ class RealSpiderEnv:
 
     def _get_hardware_observations(self):
         # 1. Read your real 6-axis IMU values (accel x/y/z, gyro r/p/y)
-        imu_data = [0.0] * 6 # Replace with your real IMU sensor read library
+        # imu_data = [0.0] * 6 # Replace with your real IMU sensor read library
+        imu_data = imu.get_reading()
         
         # 2. Get your current 12 servo angles
         servo_data = [kit.servo[i].angle for i in range(12)]
         
         # 3. Read your 360-degree LiDAR array
-        lidar_data = [1.0] * 360 # Replace with your real LiDAR serial read library
+        # lidar_data = [1.0] * 360 # Replace with your real LiDAR serial read library
+        lidar_data = lidar.get_scan().tolist()
         
         # Combine them into a single state vector matching your network's expectations
         return np.concatenate([imu_data, servo_data, lidar_data])
@@ -52,14 +62,22 @@ class RealSpiderEnv:
         time.sleep(0.05) 
         
         next_obs = self._get_hardware_observations()
+
+        # Fall detection via IMU — if tilt is severe, end the episode
+        ax, ay, az = next_obs[0], next_obs[1], next_obs[2]
+        fallen     = abs(ax) > 8.0 or abs(ay) > 8.0   # ~80% tilt in m/s²
+        reward     = 1.0 if not fallen else -10.0
         
         # Calculate a safety reward (e.g., negative penalty if the IMU detects it fell over)
         reward = 1.0 
-        terminated = False # Set to True if your IMU detects a catastrophic tilt/fall
-        truncated = False
+        # terminated = False # Set to True if your IMU detects a catastrophic tilt/fall
+        # Fall detection via IMU — if tilt is severe, end the episode
+        ax, ay, az = next_obs[0], next_obs[1], next_obs[2]
+        fallen     = abs(ax) > 8.0 or abs(ay) > 8.0   # ~80% tilt in m/s²
+        reward     = 1.0 if not fallen else -10.0
         info = {}
         
-        return next_obs, reward, terminated, truncated, info
+        return next_obs, reward, fallen, truncated, info
 
 # ── Run Deployment ────────────────────────────────────────────────────────────
 env = RealSpiderEnv()
