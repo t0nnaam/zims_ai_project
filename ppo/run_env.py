@@ -37,8 +37,8 @@ class RealSpiderEnv:
 
     def _get_hardware_observations(self):
         # 1. Read your real 6-axis IMU values (accel x/y/z, gyro r/p/y)
-        # imu_data = [0.0] * 6 # Replace with your real IMU sensor read library
-        imu_data = imu.get_reading()
+        imu_data = [0.0] * 6 # Replace with your real IMU sensor read library
+        # imu_data = imu.get_reading()
         
         # 2. Get your current 12 servo angles
         servo_data = [kit.servo[i].angle for i in range(12)]
