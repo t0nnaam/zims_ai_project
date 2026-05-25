@@ -1,6 +1,7 @@
 import serial
 import struct
 import time
+import threading
 import smbus2
 import numpy as np
 
@@ -8,91 +9,84 @@ import numpy as np
 
 class LidarReader:
     """
-    Reads 360-degree scan data directly from RPLidar A1 over serial.
-    Returns a 360-element array (one value per degree, in meters).
+    Reads RPLidar A1 in a background thread so get_scan() never blocks.
+    The LiDAR keeps spinning continuously; get_scan() returns the latest
+    completed revolution instantly.
     """
     SYNC_BYTE1 = 0xA5
-    SYNC_BYTE2 = 0x5A
     SCAN_CMD   = 0x20
 
     def __init__(self, port='/dev/ttyUSB0', baudrate=115200, timeout=1.0):
-        self.port     = port
-        self.baudrate = baudrate
-        self.timeout  = timeout
-        self.serial   = None
-        self._scan_buffer = {}  # angle_int -> distance_m
+        self.port      = port
+        self.baudrate  = baudrate
+        self.timeout   = timeout
+        self.serial    = None
+        self._lock     = threading.Lock()
+        self._latest   = np.zeros(359, dtype=np.float32)  # 359 to match trained model
+        self._running  = False
+        self._thread   = None
+        self._ready    = False  # True once first full scan is done
 
     def connect(self):
         self.serial = serial.Serial(self.port, self.baudrate, timeout=self.timeout)
         time.sleep(0.1)
-        self._start_scan()
-
-    def _start_scan(self):
-        # Send start scan command
+        # Send start scan command and discard 7-byte descriptor
         self.serial.write(bytes([self.SYNC_BYTE1, self.SCAN_CMD]))
-        # Read and discard the response descriptor (7 bytes)
         self.serial.read(7)
+        # Start background thread
+        self._running = True
+        self._thread  = threading.Thread(target=self._read_loop, daemon=True)
+        self._thread.start()
+        # Wait for first full scan before returning
+        print("Waiting for first LiDAR scan...")
+        while not self._ready:
+            time.sleep(0.05)
+        print("LiDAR ready.")
 
-    def _read_packet(self):
-        """Read one 5-byte scan packet from the LiDAR."""
-        raw = self.serial.read(5)
-        if len(raw) < 5:
-            return None
+    def _read_loop(self):
+        current_scan = {}
+        while self._running:
+            try:
+                raw = self.serial.read(5)
+                if len(raw) < 5:
+                    continue
 
-        b0, b1, b2, b3, b4 = raw
+                b0, b1, b2, b3, b4 = raw
 
-        # Validate sync bits
-        start_bit     = b0 & 0x01
-        inv_start_bit = (b0 >> 1) & 0x01
-        if start_bit == inv_start_bit:
-            return None  # bad packet, skip
+                # Validate sync bits
+                if (b0 & 0x01) == ((b0 >> 1) & 0x01):
+                    continue  # bad packet
 
-        quality  = b0 >> 2
-        angle    = ((b1 >> 1) | (b2 << 7)) / 64.0      # degrees
-        distance = (b3 | (b4 << 8)) / 4000.0            # meters (raw is in mm*4)
+                quality  = b0 >> 2
+                angle    = ((b1 >> 1) | (b2 << 7)) / 64.0
+                distance = (b3 | (b4 << 8)) / 4000.0
 
-        return angle, distance, quality
+                # New revolution starts — publish completed scan
+                if (b0 & 0x01) == 1 and current_scan:
+                    result = np.zeros(359, dtype=np.float32)
+                    for deg, dist in current_scan.items():
+                        if deg < 359:
+                            result[deg] = dist
+                    with self._lock:
+                        self._latest = result
+                    self._ready = True
+                    current_scan = {}
 
-    def get_scan(self):
-        """
-        Collect one full 360° scan.
-        Blocks until a complete revolution is detected.
-        Returns a numpy array of shape (360,) in meters.
-        Unreachable/invalid points are set to 0.0.
-        """
-        scan = {}
-        first_angle_seen = False
-        start_angle = None
+                angle_int = int(angle) % 360
+                if quality > 0 and distance > 0:
+                    current_scan[angle_int] = distance
 
-        while True:
-            packet = self._read_packet()
-            if packet is None:
+            except Exception:
                 continue
 
-            angle, distance, quality = packet
-
-            if not first_angle_seen:
-                start_angle      = angle
-                first_angle_seen = True
-
-            angle_int = int(angle) % 360
-            if quality > 0 and distance > 0:
-                scan[angle_int] = distance
-
-            # Detect when we've gone past 355° — full revolution done
-            if first_angle_seen and angle > 355:
-                break
-
-        # Build fixed-size 360 array
-        result = np.zeros(360, dtype=np.float32)
-        for deg, dist in scan.items():
-            result[deg] = dist
-
-        return result
+    def get_scan(self):
+        """Returns the latest 359-element scan instantly — never blocks."""
+        with self._lock:
+            return self._latest.copy()
 
     def disconnect(self):
+        self._running = False
         if self.serial and self.serial.is_open:
-            # Send stop command
             self.serial.write(bytes([self.SYNC_BYTE1, 0x25]))
             time.sleep(0.1)
             self.serial.close()
